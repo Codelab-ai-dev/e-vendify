@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { debugSupabaseConnection, testUserRegistration } from '@/lib/debug-supabase'
+import { supabase } from '@/lib/supabase'
 import { Badge } from '@/components/ui/badge'
 
 export default function DebugSupabasePage() {
@@ -17,15 +17,72 @@ export default function DebugSupabasePage() {
 
   const runDebug = async () => {
     setLoading(true)
-    const result = await debugSupabaseConnection()
-    setDebugResults(result)
+    try {
+      // Test basic connection
+      const { data, error } = await supabase.auth.getSession()
+      
+      if (error) {
+        setDebugResults({
+          success: false,
+          error: error.message,
+          details: error
+        })
+      } else {
+        setDebugResults({
+          success: true,
+          message: 'Conexión exitosa con Supabase',
+          data: data
+        })
+      }
+    } catch (err) {
+      setDebugResults({
+        success: false,
+        error: err instanceof Error ? err.message : 'Error desconocido',
+        details: err
+      })
+    }
     setLoading(false)
   }
 
   const testRegistration = async () => {
     setLoading(true)
-    const result = await testUserRegistration(testEmail, testPassword)
-    setRegistrationResult(result)
+    try {
+      // Test user registration
+      const { data, error } = await supabase.auth.signUp({
+        email: testEmail,
+        password: testPassword,
+        options: {
+          data: {
+            test_user: true
+          }
+        }
+      })
+      
+      if (error) {
+        setRegistrationResult({
+          success: false,
+          error: error.message,
+          details: error
+        })
+      } else {
+        setRegistrationResult({
+          success: true,
+          message: 'Usuario de prueba creado exitosamente',
+          data: data
+        })
+        
+        // Clean up test user if created
+        if (data.user) {
+          console.log('Test user created with ID:', data.user.id)
+        }
+      }
+    } catch (err) {
+      setRegistrationResult({
+        success: false,
+        error: err instanceof Error ? err.message : 'Error desconocido',
+        details: err
+      })
+    }
     setLoading(false)
   }
 
