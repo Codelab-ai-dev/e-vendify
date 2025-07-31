@@ -18,9 +18,31 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'MiKiosko Digital',
+  title: 'e-vendify',
   description: 'Plataforma digital para emprendedores y pequeños negocios',
-  generator: 'MiKiosko Digital',
+  generator: 'e-vendify',
+  icons: {
+    icon: [
+      {
+        url: '/e-vendify-icon-tight.webp',
+        sizes: '32x32',
+        type: 'image/webp',
+      },
+      {
+        url: '/vendify_logo.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+    ],
+    shortcut: '/e-vendify-icon-tight.webp',
+    apple: [
+      {
+        url: '/e-vendify-icon-tight.webp',
+        sizes: '180x180',
+        type: 'image/webp',
+      },
+    ],
+  },
 }
 
 export default function RootLayout({
