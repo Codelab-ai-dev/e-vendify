@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase } from "@/lib/supabase"
+import { supabase, signUpWithRetry } from "@/lib/supabase"
 import { generateUniqueSlug } from "@/lib/slugs"
 import { toast } from "sonner"
 
@@ -152,18 +152,18 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      // Registrar usuario en Supabase
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
+      // Registrar usuario en Supabase con reintentos
+      const { data, error } = await signUpWithRetry(
+        formData.email,
+        formData.password,
+        {
           data: {
             business_name: formData.businessName,
             owner_name: formData.ownerName,
             user_type: 'business_owner'
           },
         }
-      })
+      )
 
       if (error) {
         console.error('Error de registro:', error)
@@ -171,13 +171,13 @@ export default function RegisterPage() {
         return
       }
 
-      if (data.user) {
+      if (data?.user) {
         // Generar slug único para la tienda
         const storeSlug = await generateUniqueSlug(formData.businessName, supabase)
         
         // Crear tienda en la tabla stores unificada
         const newStore = {
-          user_id: data.user.id,
+          user_id: data.user!.id,
           name: formData.businessName,
           business_name: formData.businessName,
           owner: formData.ownerName,
@@ -226,7 +226,7 @@ export default function RegisterPage() {
         setIsSuccess(true)
         
         // Verificar si el email necesita confirmación
-        if (data.user.email_confirmed_at) {
+        if (data.user && data.user.email_confirmed_at) {
           toast.success("¡Tienda creada exitosamente!")
           setTimeout(() => {
             router.push('/dashboard')

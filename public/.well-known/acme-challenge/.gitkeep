@@ -1,0 +1,5 @@
+# Este directorio es necesario para que Traefik pueda servir los ACME challenges
+# para la verificación SSL de Let's Encrypt.
+# 
+# Traefik escribirá archivos temporales aquí durante el proceso de verificación.
+# No elimines este directorio.
