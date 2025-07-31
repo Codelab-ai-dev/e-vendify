@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Link from "next/link"
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const router = useRouter()
@@ -253,5 +253,29 @@ export default function AuthCallbackPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Loader2 className="h-12 w-12 text-blue-600 animate-spin" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-blue-600">
+              Cargando...
+            </CardTitle>
+            <CardDescription>
+              Por favor espera mientras cargamos la página...
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   )
 }
