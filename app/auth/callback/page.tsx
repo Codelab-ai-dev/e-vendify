@@ -18,123 +18,114 @@ function AuthCallbackContent() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // Obtener los parámetros de la URL
-        const token_hash = searchParams.get('token_hash')
-        const type = searchParams.get('type')
-        const next = searchParams.get('next') ?? '/dashboard'
+        // Verificar si hay tokens en el hash (autenticación exitosa)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
 
-        if (token_hash && type) {
-          // Verificar el token con Supabase
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash,
-            type: type as any
+        if (accessToken && refreshToken) {
+          console.log('Tokens encontrados en el hash, estableciendo sesión...')
+          
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
           })
 
           if (error) {
-            console.error('Error de verificación:', error)
+            console.error('Error al establecer sesión:', error)
             setStatus('error')
-            setMessage(error.message || 'Error al verificar el email')
+            setMessage('Error al establecer la sesión: ' + error.message)
+            toast.error('Error al establecer la sesión')
+            return
+          }
+
+          if (data.session && data.user) {
+            await handleSuccessfulAuth(data.user)
+            return
+          }
+        }
+
+        // Verificar parámetros de verificación de email (tanto token como token_hash)
+        const token = searchParams.get('token') || searchParams.get('token_hash')
+        const type = searchParams.get('type')
+        const next = searchParams.get('next') ?? '/dashboard'
+
+        if (token && type) {
+          console.log('Token de verificación encontrado, procesando...', { token: token.substring(0, 10) + '...', type })
+          
+          // Intentar con verifyOtp usando token_hash
+          const verifyResult = await supabase.auth.verifyOtp({
+            token_hash: token,
+            type: type as any
+          })
+
+          let user = null
+          let authError = null
+
+          // Si verifyOtp funciona, extraer usuario de la sesión
+          if (!verifyResult.error && verifyResult.data.session) {
+            user = verifyResult.data.session.user
+          } else {
+            console.log('Falló verifyOtp con token_hash, intentando método alternativo...')
+            authError = verifyResult.error
+            
+            // Para emails de confirmación, usar exchangeCodeForSession si es posible
+            if (type === 'signup' || type === 'email_change') {
+              try {
+                const exchangeResult = await supabase.auth.exchangeCodeForSession(token)
+                if (!exchangeResult.error && exchangeResult.data.session) {
+                  user = exchangeResult.data.session.user
+                  authError = null
+                }
+              } catch (exchangeError) {
+                console.error('Error con exchangeCodeForSession:', exchangeError)
+                // Si también falla, intentar obtener la sesión actual
+                const sessionResult = await supabase.auth.getSession()
+                if (!sessionResult.error && sessionResult.data.session) {
+                  user = sessionResult.data.session.user
+                  authError = null
+                }
+              }
+            }
+          }
+
+          if (authError && !user) {
+            console.error('Error de verificación:', authError)
+            setStatus('error')
+            setMessage('Error al verificar el email: ' + authError.message)
             toast.error('Error al verificar el email')
             return
           }
 
-          if (data.user) {
-            // Limpiar el email pendiente del localStorage
-            const pendingEmail = localStorage.getItem('pendingConfirmationEmail')
-            const pendingBusinessName = localStorage.getItem('pendingBusinessName')
-            localStorage.removeItem('pendingConfirmationEmail')
-            localStorage.removeItem('pendingBusinessName')
-            
-            // Crear o actualizar perfil de negocio después de la confirmación
-            if (pendingBusinessName) {
-              try {
-                console.log('Intentando crear perfil de negocio para:', {
-                  user_id: data.user.id,
-                  business_name: pendingBusinessName,
-                  email: data.user.email || pendingEmail
-                })
-                
-                // Primero verificar si ya existe un perfil
-                const { data: existingProfile } = await supabase
-                  .from('business_profiles')
-                  .select('*')
-                  .eq('user_id', data.user.id)
-                  .single()
-                
-                if (existingProfile) {
-                  console.log('Perfil ya existe, actualizando:', existingProfile)
-                  
-                  const { error: updateError } = await supabase
-                    .from('business_profiles')
-                    .update({
-                      business_name: pendingBusinessName,
-                      email: data.user.email || pendingEmail,
-                      updated_at: new Date().toISOString()
-                    })
-                    .eq('user_id', data.user.id)
-                  
-                  if (updateError) {
-                    console.error('Error al actualizar perfil:', updateError)
-                    toast.error('Error al actualizar el perfil de negocio: ' + updateError.message)
-                  } else {
-                    console.log('Perfil actualizado exitosamente')
-                    toast.success('Perfil de negocio actualizado')
-                  }
-                } else {
-                  console.log('Creando nuevo perfil de negocio')
-                  
-                  const { error: insertError } = await supabase
-                    .from('business_profiles')
-                    .insert({
-                      user_id: data.user.id,
-                      business_name: pendingBusinessName,
-                      email: data.user.email || pendingEmail,
-                      created_at: new Date().toISOString(),
-                      updated_at: new Date().toISOString()
-                    })
-                  
-                  if (insertError) {
-                    console.error('Error al crear perfil:', insertError)
-                    toast.error('Error al crear el perfil de negocio: ' + insertError.message)
-                  } else {
-                    console.log('Perfil creado exitosamente')
-                    toast.success('Perfil de negocio creado')
-                  }
-                }
-              } catch (error) {
-                console.error('Error inesperado al manejar perfil:', error)
-                toast.error('Error inesperado al crear el perfil')
-              }
-            }
-            
-            setStatus('success')
-            setMessage('¡Email verificado exitosamente!')
-            toast.success('¡Bienvenido! Tu cuenta ha sido activada')
-            
-            // Redirigir después de un momento
-            setTimeout(() => {
-              router.push(next)
-            }, 2000)
-          }
-        } else {
-          // Manejar callback de sesión normal
-          const { data, error } = await supabase.auth.getSession()
-          
-          if (error) {
-            setStatus('error')
-            setMessage('Error al obtener la sesión')
+          if (user) {
+            await handleSuccessfulAuth(user)
             return
           }
-
-          if (data.session) {
-            setStatus('success')
-            setMessage('Sesión iniciada correctamente')
-            router.push('/dashboard')
-          } else {
-            setStatus('error')
-            setMessage('No se pudo establecer la sesión')
-          }
         }
+
+        // Si no hay tokens ni parámetros de verificación, verificar sesión existente
+        console.log('No se encontraron parámetros específicos, verificando sesión existente...')
+        const { data, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Error al obtener sesión:', error)
+          setStatus('error')
+          setMessage('Error al obtener la sesión: ' + error.message)
+          return
+        }
+
+        if (data.session) {
+          console.log('Sesión existente encontrada')
+          setStatus('success')
+          setMessage('Sesión iniciada correctamente')
+          toast.success('Sesión iniciada correctamente')
+          setTimeout(() => router.push('/dashboard'), 1500)
+        } else {
+          console.log('No se encontró sesión válida')
+          setStatus('error')
+          setMessage('No se pudo establecer la sesión')
+        }
+
       } catch (error) {
         console.error('Error en callback:', error)
         setStatus('error')
@@ -143,7 +134,83 @@ function AuthCallbackContent() {
       }
     }
 
-    handleAuthCallback()
+    const handleSuccessfulAuth = async (user: any) => {
+      try {
+        // Limpiar datos pendientes del localStorage
+        const pendingEmail = localStorage.getItem('pendingConfirmationEmail')
+        const pendingBusinessName = localStorage.getItem('pendingBusinessName')
+        localStorage.removeItem('pendingConfirmationEmail')
+        localStorage.removeItem('pendingBusinessName')
+        
+        // Crear o actualizar perfil de negocio
+        if (pendingBusinessName) {
+          console.log('Procesando perfil de negocio:', {
+            user_id: user.id,
+            business_name: pendingBusinessName,
+            email: user.email || pendingEmail
+          })
+          
+          const { data: existingProfile } = await supabase
+            .from('business_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single()
+          
+          if (existingProfile) {
+            const { error: updateError } = await supabase
+              .from('business_profiles')
+              .update({
+                business_name: pendingBusinessName,
+                email: user.email || pendingEmail,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', user.id)
+            
+            if (updateError) {
+              console.error('Error al actualizar perfil:', updateError)
+              toast.error('Error al actualizar el perfil: ' + updateError.message)
+            } else {
+              toast.success('Perfil actualizado exitosamente')
+            }
+          } else {
+            const { error: insertError } = await supabase
+              .from('business_profiles')
+              .insert({
+                user_id: user.id,
+                business_name: pendingBusinessName,
+                email: user.email || pendingEmail,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              })
+            
+            if (insertError) {
+              console.error('Error al crear perfil:', insertError)
+              toast.error('Error al crear perfil: ' + insertError.message)
+            } else {
+              toast.success('Perfil creado exitosamente')
+            }
+          }
+        }
+        
+        setStatus('success')
+        setMessage('¡Email verificado exitosamente!')
+        toast.success('¡Bienvenido! Tu cuenta ha sido activada')
+        
+        setTimeout(() => router.push('/dashboard'), 2000)
+        
+      } catch (error) {
+        console.error('Error al procesar autenticación exitosa:', error)
+        // No bloquear el flujo principal por errores en el perfil
+        setStatus('success')
+        setMessage('Email verificado, pero hubo un problema con el perfil')
+        setTimeout(() => router.push('/dashboard'), 2000)
+      }
+    }
+
+    // Solo ejecutar cuando el router esté listo
+    if (router) {
+      handleAuthCallback()
+    }
   }, [searchParams, router])
 
   const getStatusIcon = () => {
