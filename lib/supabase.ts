@@ -58,7 +58,7 @@ export const signUpWithRetry = async (email: string, password: string, options?:
         email,
         password,
         options:{
-          emailRedirectTo: process.env.NEXT_PUBLIC_SUPABASE_URL + '/dashboard'
+          emailRedirectTo: 'https://e-vendify.com/dashboard'
         }
       })
       
