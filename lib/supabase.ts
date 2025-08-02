@@ -57,7 +57,9 @@ export const signUpWithRetry = async (email: string, password: string, options?:
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options
+        options:{
+          emailRedirectTo: process.env.NEXT_PUBLIC_SUPABASE_URL + '/dashboard'
+        }
       })
       
       if (error) {
