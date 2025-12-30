@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase"
 import { generateUniqueSlug } from "@/lib/slugs"
 import { toast } from "sonner"
 import { themes, themeLabels, Theme } from "@/lib/themes"
+import { uploadStoreLogo, deleteImage, isStorageUrl } from "@/lib/storage"
 
 // ... imports and constants ...
 
@@ -90,6 +91,9 @@ interface StoreSettingsFormProps {
 export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSettingsFormProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [originalLogoUrl, setOriginalLogoUrl] = useState<string | null>(businessProfile.logo_url)
   const [logoPreview, setLogoPreview] = useState<string | null>(businessProfile.logo_url)
   const [formData, setFormData] = useState({
     business_name: businessProfile.business_name || businessProfile.name || '',
@@ -122,11 +126,27 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Validar tipo de archivo
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Tipo de archivo no permitido. Usa JPG, PNG, WebP o GIF.')
+        return
+      }
+
+      // Validar tamano (5MB max)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('El archivo es muy grande. Maximo 5MB.')
+        return
+      }
+
+      // Guardar archivo para subir despues
+      setLogoFile(file)
+
+      // Mostrar preview local
       const reader = new FileReader()
       reader.onload = (e) => {
         const result = e.target?.result as string
         setLogoPreview(result)
-        setFormData({ ...formData, logo_url: result })
       }
       reader.readAsDataURL(file)
     }
@@ -134,6 +154,7 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
 
   const removeLogo = () => {
     setLogoPreview(null)
+    setLogoFile(null)
     setFormData({ ...formData, logo_url: "" })
   }
 
@@ -142,6 +163,34 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
     setIsLoading(true)
 
     try {
+      let logoUrl: string | null = formData.logo_url || null
+
+      // Subir nuevo logo si hay archivo seleccionado
+      if (logoFile && businessProfile.user_id) {
+        setIsUploading(true)
+        const uploadResult = await uploadStoreLogo(logoFile, businessProfile.user_id)
+        setIsUploading(false)
+
+        if (!uploadResult.success) {
+          toast.error(uploadResult.error || 'Error al subir el logo')
+          setIsLoading(false)
+          return
+        }
+
+        logoUrl = uploadResult.url || null
+
+        // Eliminar logo anterior si era del storage
+        if (originalLogoUrl && isStorageUrl(originalLogoUrl)) {
+          await deleteImage(originalLogoUrl, businessProfile.user_id)
+        }
+      }
+
+      // Si se elimino el logo
+      if (!logoPreview && originalLogoUrl && isStorageUrl(originalLogoUrl) && businessProfile.user_id) {
+        await deleteImage(originalLogoUrl, businessProfile.user_id)
+        logoUrl = null
+      }
+
       // Verificar si cambió el nombre del negocio para regenerar slug
       let updateData = {
         business_name: formData.business_name,
@@ -153,7 +202,7 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
         city: formData.city,
         description: formData.description,
         website: formData.website,
-        logo_url: formData.logo_url,
+        logo_url: logoUrl,
         category: formData.category,
         theme: formData.theme,
         updated_at: new Date().toISOString(),
@@ -175,6 +224,10 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
         toast.error(`Error al actualizar la tienda: ${error.message}`)
         return
       }
+
+      // Actualizar estado local
+      setOriginalLogoUrl(logoUrl)
+      setLogoFile(null)
 
       toast.success('Tienda actualizada exitosamente')
       setIsEditing(false)
@@ -203,6 +256,7 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
       theme: businessProfile.theme || 'modern',
     })
     setLogoPreview(businessProfile.logo_url)
+    setLogoFile(null)
     setIsEditing(false)
   }
 
@@ -485,7 +539,7 @@ export default function StoreSettingsForm({ businessProfile, onUpdate }: StoreSe
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Guardando...
+              {isUploading ? 'Subiendo logo...' : 'Guardando...'}
             </>
           ) : (
             <>
