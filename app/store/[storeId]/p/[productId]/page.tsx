@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { motion } from "framer-motion"
 import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
@@ -10,9 +11,14 @@ import { Loader2, ShoppingCart, ArrowLeft, Store as StoreIcon } from "lucide-rea
 import { useCart } from "@/lib/store/useCart"
 import { toast } from "sonner"
 import Link from "next/link"
-import { CartDrawer } from "@/components/store/CartDrawer"
 import { themes, Theme } from "@/lib/themes"
 import { useTheme } from "next-themes"
+
+// Lazy load CartDrawer
+const CartDrawer = dynamic(() => import("@/components/store/CartDrawer").then(mod => ({ default: mod.CartDrawer })), {
+  loading: () => null,
+  ssr: false
+})
 
 export const dynamic = 'force-dynamic'
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
+import dynamic from "next/dynamic"
 import { Store, MessageCircle, MapPin, Clock, Loader2, ShoppingCart, ExternalLink, Search, Filter, Star, ChevronRight, TrendingUp, Package, Palette, X, Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,11 +11,16 @@ import { Input } from "@/components/ui/input"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import Link from "next/link"
-import { CartDrawer } from "@/components/store/CartDrawer"
 import { useCart } from "@/lib/store/useCart"
 import { motion, AnimatePresence } from "framer-motion"
 import { themes, Theme } from "@/lib/themes"
 import { useTheme } from "next-themes"
+
+// Lazy load CartDrawer - solo se carga cuando el usuario lo necesita
+const CartDrawer = dynamic(() => import("@/components/store/CartDrawer").then(mod => ({ default: mod.CartDrawer })), {
+  loading: () => null, // No mostrar loader, el drawer aparece instantáneamente
+  ssr: false // No renderizar en servidor
+})
 
 // Tipos para TypeScript
 interface Store {

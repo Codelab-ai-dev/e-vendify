@@ -1,0 +1,11 @@
+<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" fill="#f3f4f6"/>
+  <g fill="#9ca3af">
+    <path d="M200 140c-33.137 0-60 26.863-60 60s26.863 60 60 60 60-26.863 60-60-26.863-60-60-60zm0 100c-22.091 0-40-17.909-40-40s17.909-40 40-40 40 17.909 40 40-17.909 40-40 40z"/>
+    <circle cx="200" cy="200" r="15"/>
+    <path d="M280 280H120l40-80 30 40 30-20z"/>
+  </g>
+  <text x="200" y="320" font-family="Arial, sans-serif" font-size="16" fill="#6b7280" text-anchor="middle">
+    Sin imagen
+  </text>
+</svg>

@@ -7,7 +7,27 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    // Habilitar optimización de imágenes con sharp
+    unoptimized: false,
+    // Formatos modernos para mejor compresión
+    formats: ['image/avif', 'image/webp'],
+    // Dominios remotos permitidos
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**', // Permitir todos los dominios HTTPS
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+    ],
+    // Tamaños de dispositivos para responsive images
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    // Tamaños de imagen para diferentes layouts
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // Cache optimizado
+    minimumCacheTTL: 60, // 60 segundos
   },
   // Configuración para permitir ACME challenges de Traefik/Let's Encrypt
   async rewrites() {

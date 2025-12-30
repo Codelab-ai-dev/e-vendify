@@ -1,4 +1,13 @@
 import { supabase } from './supabase'
+import {
+  createPaginationResult,
+  createCursorPaginationResult,
+  calculateOffset,
+  type PaginationParams,
+  type PaginationResult,
+  type CursorPaginationParams,
+  type CursorPaginationResult,
+} from './pagination'
 
 export interface Product {
   id: string
@@ -11,7 +20,7 @@ export interface Product {
   is_available: boolean
   created_at: string
   updated_at: string
-  
+
   // Relación con store (opcional para joins)
   store?: {
     id: string
@@ -241,6 +250,289 @@ export const getTopProducts = async (limit: number = 10) => {
     .eq('is_available', true)
     .order('created_at', { ascending: false })
     .limit(limit)
-  
+
   return { data: data as Product[] | null, error }
+}
+
+// ============================================================
+// FUNCIONES CON PAGINACIÓN
+// ============================================================
+
+/**
+ * Obtener todos los productos con paginación offset-based
+ */
+export const getAllProductsPaginated = async (
+  params: PaginationParams
+): Promise<PaginationResult<Product>> => {
+  const { page, pageSize } = params
+  const offset = calculateOffset(page, pageSize)
+
+  // Obtener total de productos para metadata de paginación
+  const { count, error: countError } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+
+  if (countError) {
+    return createPaginationResult([], 0, page, pageSize, countError)
+  }
+
+  // Obtener productos paginados
+  const { data, error } = await supabase
+    .from('products')
+    .select(`
+      *,
+      store:stores(id, name, category)
+    `)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + pageSize - 1)
+
+  return createPaginationResult(
+    (data as Product[]) || [],
+    count || 0,
+    page,
+    pageSize,
+    error
+  )
+}
+
+/**
+ * Obtener productos por tienda con paginación offset-based
+ */
+export const getProductsByStorePaginated = async (
+  storeId: string,
+  params: PaginationParams
+): Promise<PaginationResult<Product>> => {
+  const { page, pageSize } = params
+  const offset = calculateOffset(page, pageSize)
+
+  // Obtener total de productos para la tienda
+  const { count, error: countError } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .eq('store_id', storeId)
+
+  if (countError) {
+    return createPaginationResult([], 0, page, pageSize, countError)
+  }
+
+  // Obtener productos paginados
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('store_id', storeId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + pageSize - 1)
+
+  return createPaginationResult(
+    (data as Product[]) || [],
+    count || 0,
+    page,
+    pageSize,
+    error
+  )
+}
+
+/**
+ * Buscar productos con paginación offset-based
+ */
+export const searchProductsPaginated = async (
+  searchTerm: string,
+  params: PaginationParams
+): Promise<PaginationResult<Product>> => {
+  const { page, pageSize } = params
+  const offset = calculateOffset(page, pageSize)
+
+  const searchFilter = `name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`
+
+  // Obtener total de resultados
+  const { count, error: countError } = await supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+    .or(searchFilter)
+    .eq('is_available', true)
+
+  if (countError) {
+    return createPaginationResult([], 0, page, pageSize, countError)
+  }
+
+  // Obtener resultados paginados
+  const { data, error } = await supabase
+    .from('products')
+    .select(`
+      *,
+      store:stores(id, name, category)
+    `)
+    .or(searchFilter)
+    .eq('is_available', true)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + pageSize - 1)
+
+  return createPaginationResult(
+    (data as Product[]) || [],
+    count || 0,
+    page,
+    pageSize,
+    error
+  )
+}
+
+/**
+ * Obtener productos con filtros avanzados y paginación
+ */
+export const getProductsWithFiltersPaginated = async (
+  filters: {
+    storeId?: string
+    category?: string
+    minPrice?: number
+    maxPrice?: number
+    isAvailable?: boolean
+    searchTerm?: string
+  },
+  params: PaginationParams
+): Promise<PaginationResult<Product>> => {
+  const { page, pageSize } = params
+  const offset = calculateOffset(page, pageSize)
+
+  // Construir query de conteo
+  let countQuery = supabase
+    .from('products')
+    .select('*', { count: 'exact', head: true })
+
+  // Aplicar filtros al conteo
+  if (filters.storeId) {
+    countQuery = countQuery.eq('store_id', filters.storeId)
+  }
+  if (filters.category) {
+    countQuery = countQuery.eq('category', filters.category)
+  }
+  if (filters.minPrice !== undefined) {
+    countQuery = countQuery.gte('price', filters.minPrice)
+  }
+  if (filters.maxPrice !== undefined) {
+    countQuery = countQuery.lte('price', filters.maxPrice)
+  }
+  if (filters.isAvailable !== undefined) {
+    countQuery = countQuery.eq('is_available', filters.isAvailable)
+  }
+  if (filters.searchTerm) {
+    countQuery = countQuery.or(
+      `name.ilike.%${filters.searchTerm}%,description.ilike.%${filters.searchTerm}%`
+    )
+  }
+
+  const { count, error: countError } = await countQuery
+
+  if (countError) {
+    return createPaginationResult([], 0, page, pageSize, countError)
+  }
+
+  // Construir query de datos
+  let dataQuery = supabase
+    .from('products')
+    .select(`
+      *,
+      store:stores(id, name, category)
+    `)
+    .order('created_at', { ascending: false })
+
+  // Aplicar filtros a los datos
+  if (filters.storeId) {
+    dataQuery = dataQuery.eq('store_id', filters.storeId)
+  }
+  if (filters.category) {
+    dataQuery = dataQuery.eq('category', filters.category)
+  }
+  if (filters.minPrice !== undefined) {
+    dataQuery = dataQuery.gte('price', filters.minPrice)
+  }
+  if (filters.maxPrice !== undefined) {
+    dataQuery = dataQuery.lte('price', filters.maxPrice)
+  }
+  if (filters.isAvailable !== undefined) {
+    dataQuery = dataQuery.eq('is_available', filters.isAvailable)
+  }
+  if (filters.searchTerm) {
+    dataQuery = dataQuery.or(
+      `name.ilike.%${filters.searchTerm}%,description.ilike.%${filters.searchTerm}%`
+    )
+  }
+
+  const { data, error } = await dataQuery.range(offset, offset + pageSize - 1)
+
+  return createPaginationResult(
+    (data as Product[]) || [],
+    count || 0,
+    page,
+    pageSize,
+    error
+  )
+}
+
+/**
+ * Obtener productos con paginación por cursor (para infinite scroll)
+ */
+export const getProductsCursor = async (
+  params: CursorPaginationParams
+): Promise<CursorPaginationResult<Product>> => {
+  const { cursor, limit } = params
+
+  let query = supabase
+    .from('products')
+    .select(`
+      *,
+      store:stores(id, name, category)
+    `)
+    .order('created_at', { ascending: false })
+    .limit(limit + 1) // Pedir uno más para saber si hay más páginas
+
+  // Si hay cursor, obtener productos después de ese ID
+  if (cursor) {
+    // Obtener la fecha del cursor
+    const { data: cursorProduct } = await supabase
+      .from('products')
+      .select('created_at')
+      .eq('id', cursor)
+      .single()
+
+    if (cursorProduct) {
+      query = query.lt('created_at', cursorProduct.created_at)
+    }
+  }
+
+  const { data, error } = await query
+
+  return createCursorPaginationResult((data as Product[]) || [], limit, error)
+}
+
+/**
+ * Obtener productos por tienda con paginación por cursor
+ */
+export const getProductsByStoreCursor = async (
+  storeId: string,
+  params: CursorPaginationParams
+): Promise<CursorPaginationResult<Product>> => {
+  const { cursor, limit } = params
+
+  let query = supabase
+    .from('products')
+    .select('*')
+    .eq('store_id', storeId)
+    .order('created_at', { ascending: false })
+    .limit(limit + 1)
+
+  if (cursor) {
+    const { data: cursorProduct } = await supabase
+      .from('products')
+      .select('created_at')
+      .eq('id', cursor)
+      .single()
+
+    if (cursorProduct) {
+      query = query.lt('created_at', cursorProduct.created_at)
+    }
+  }
+
+  const { data, error } = await query
+
+  return createCursorPaginationResult((data as Product[]) || [], limit, error)
 }

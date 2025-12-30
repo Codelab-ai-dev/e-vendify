@@ -1,0 +1,11 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#f9fafb"/>
+  <g fill="#d1d5db">
+    <path d="M400 200c-44.183 0-80 35.817-80 80s35.817 80 80 80 80-35.817 80-80-35.817-80-80-80zm0 133.333c-29.455 0-53.333-23.878-53.333-53.333s23.878-53.333 53.333-53.333 53.333 23.878 53.333 53.333-23.878 53.333-53.333 53.333z"/>
+    <circle cx="400" cy="280" r="20"/>
+    <path d="M533.333 400H266.667l66.666-133.333 50 66.666 50-33.333z"/>
+  </g>
+  <text x="400" y="480" font-family="Arial, sans-serif" font-size="24" fill="#9ca3af" text-anchor="middle">
+    Imagen no disponible
+  </text>
+</svg>

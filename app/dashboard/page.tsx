@@ -1,9 +1,8 @@
 "use client"
 
-export const dynamic = 'force-dynamic'
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { Plus, Edit, Trash2, Eye, Store, LogOut, Package, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,9 +12,40 @@ import { supabase, isAdmin } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import StoreSettingsForm from "@/components/StoreSettingsForm"
 import { Skeleton } from "@/components/ui/skeleton"
-import OnboardingChecklist from "@/components/dashboard/OnboardingChecklist"
+
+// Lazy load componentes pesados - se cargan solo cuando se necesitan
+const StoreSettingsForm = dynamic(() => import("@/components/StoreSettingsForm"), {
+  loading: () => (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96 mt-2" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </CardContent>
+    </Card>
+  ),
+  ssr: false
+})
+
+const OnboardingChecklist = dynamic(() => import("@/components/dashboard/OnboardingChecklist"), {
+  loading: () => (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-48" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-20 w-full" />
+      </CardContent>
+    </Card>
+  ),
+  ssr: false
+})
 
 // Tipos para TypeScript
 interface BusinessProfile {
