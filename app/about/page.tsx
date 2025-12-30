@@ -1,409 +1,280 @@
 "use client"
 
-import { useState } from "react"
+import { useRef } from "react"
 import Link from "next/link"
-import { ArrowLeft, Store, Users, Shield, Zap, Heart, Star, Moon, Sun, Target, Award, Globe, Lightbulb, CheckCircle, ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
+import { motion, useInView } from "framer-motion"
+import { ArrowLeft, ArrowRight, Target, Lightbulb, Heart } from "lucide-react"
+import { useTheme } from "next-themes"
+
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, margin: "-50px" })
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
 export default function AboutPage() {
-  const [isDarkMode, setIsDarkMode] = useState(false)
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode)
-  }
+  const { theme, setTheme } = useTheme()
 
   const values = [
     {
       icon: Target,
-      title: "Misión",
-      description: "Democratizar el comercio electrónico para que cualquier emprendedor pueda crear y gestionar su tienda digital de manera fácil y profesional."
+      title: "Mision",
+      description: "Democratizar el comercio electronico para que cualquier emprendedor pueda crear y gestionar su tienda digital."
     },
     {
       icon: Lightbulb,
-      title: "Visión",
-      description: "Ser la plataforma líder en Latinoamérica para el comercio digital local, conectando emprendedores con sus comunidades."
+      title: "Vision",
+      description: "Ser la plataforma lider en Latinoamerica para el comercio digital local."
     },
     {
       icon: Heart,
       title: "Valores",
-      description: "Innovación, simplicidad, accesibilidad y compromiso con el crecimiento de los pequeños y medianos negocios."
-    }
-  ]
-
-  const stats = [
-    { number: "10,000+", label: "Tiendas Creadas" },
-    { number: "500,000+", label: "Productos Vendidos" },
-    { number: "50+", label: "Ciudades" },
-    { number: "99.9%", label: "Uptime" }
-  ]
-
-  const team = [
-    {
-      name: "María González",
-      role: "CEO & Fundadora",
-      description: "15 años de experiencia en e-commerce y tecnología. Ex-directora de producto en Amazon México.",
-      image: "/team-ceo.jpg"
-    },
-    {
-      name: "Carlos Rodríguez",
-      role: "CTO",
-      description: "Ingeniero en sistemas con especialización en arquitecturas escalables y seguridad web.",
-      image: "/team-cto.jpg"
-    },
-    {
-      name: "Ana Martínez",
-      role: "Head of Design",
-      description: "Diseñadora UX/UI con pasión por crear experiencias digitales intuitivas y accesibles.",
-      image: "/team-design.jpg"
-    },
-    {
-      name: "Luis Hernández",
-      role: "Head of Growth",
-      description: "Especialista en marketing digital y growth hacking para startups tecnológicas.",
-      image: "/team-growth.jpg"
+      description: "Innovacion, simplicidad, accesibilidad y compromiso con el crecimiento de los negocios."
     }
   ]
 
   const milestones = [
-    {
-      year: "2023",
-      title: "Fundación",
-      description: "Nace e-vendify con la visión de democratizar el comercio electrónico en México."
-    },
-    {
-      year: "2024",
-      title: "Primeras 1,000 tiendas",
-      description: "Alcanzamos nuestro primer gran hito con más de 1,000 tiendas activas en la plataforma."
-    },
-    {
-      year: "2024",
-      title: "Expansión regional",
-      description: "Expandimos nuestros servicios a 5 países de Latinoamérica."
-    },
-    {
-      year: "2025",
-      title: "Inteligencia Artificial",
-      description: "Lanzamos nuestro asistente de IA para optimizar ventas y atención al cliente."
-    }
+    { year: "2023", title: "Fundacion", description: "Nace e-vendify con la vision de democratizar el comercio electronico en Mexico." },
+    { year: "2024", title: "1,000 tiendas", description: "Alcanzamos nuestro primer gran hito con mas de 1,000 tiendas activas." },
+    { year: "2024", title: "Expansion", description: "Expandimos servicios a 5 paises de Latinoamerica." },
+    { year: "2025", title: "IA", description: "Lanzamos asistente de IA para optimizar ventas y atencion al cliente." }
+  ]
+
+  const team = [
+    { name: "Maria Gonzalez", role: "CEO & Fundadora", initials: "MG" },
+    { name: "Carlos Rodriguez", role: "CTO", initials: "CR" },
+    { name: "Ana Martinez", role: "Head of Design", initials: "AM" },
+    { name: "Luis Hernandez", role: "Head of Growth", initials: "LH" }
   ]
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
-        : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'
-    }`}>
-      {/* Header */}
-      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${
-        isDarkMode 
-          ? 'bg-gray-900/80 border-gray-700' 
-          : 'bg-white/80 border-gray-200'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center">
-                <img 
-                  src={isDarkMode ? "/vendify_dark.png" : "/vendify_white.png"} 
-                  alt="Vendify Logo" 
-                  className="transition-opacity duration-300" 
-                  style={{ height: "200px", width: "auto" }}
-                />
-              </Link>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleTheme}
-                className={`p-2 transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'text-gray-300 hover:text-white hover:bg-gray-800' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </Button>
-              <Link href="/login">
-                <Button variant="ghost" className={isDarkMode ? 'text-gray-300 hover:text-white hover:bg-gray-800' : ''}>
-                  Iniciar Sesión
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className={isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : ''}>
-                  Registrarse
-                </Button>
-              </Link>
-            </div>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Nav */}
+      <nav className="border-b border-border sticky top-0 z-50 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group">
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm">Inicio</span>
+            </Link>
+            <Link href="/">
+              <Image
+                src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                alt="e-vendify"
+                width={140}
+                height={40}
+                className={theme === 'dark' ? 'h-8 w-auto' : 'h-6 w-auto'}
+              />
+            </Link>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {theme === 'dark' ? '○' : '●'}
+            </button>
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+              Ingresar
+            </Link>
+            <Link href="/register" className="btn-brutal text-sm px-5 py-2">
+              Crear tienda
+            </Link>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="py-20 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <Badge className={`mb-4 transition-colors duration-300 ${
-              isDarkMode 
-                ? 'bg-blue-900 text-blue-200 hover:bg-blue-800' 
-                : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-            }`}>
-              🚀 Nuestra Historia
-            </Badge>
-            <h1 className={`text-4xl lg:text-6xl font-bold mb-6 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Construyendo el Futuro del
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="max-w-4xl"
+          >
+            <span className="label-mono mb-6 block">Nuestra historia</span>
+            <h1 className="heading-xl text-5xl sm:text-6xl lg:text-7xl mb-8">
+              Construyendo el futuro del
               <br />
-              <span className="text-blue-600">Comercio Digital</span>
+              <span className="text-primary">comercio digital.</span>
             </h1>
-            <p className={`text-xl mb-8 max-w-3xl mx-auto transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-300' : 'text-gray-600'
-            }`}>
-              Somos un equipo apasionado por democratizar el comercio electrónico, 
-              haciendo que cualquier emprendedor pueda crear y gestionar su tienda digital 
-              de manera profesional y accesible.
+            <p className="text-xl text-muted-foreground max-w-2xl leading-relaxed">
+              Somos un equipo apasionado por democratizar el comercio electronico,
+              haciendo que cualquier emprendedor pueda crear su tienda digital de manera profesional.
             </p>
-          </div>
+          </motion.div>
+        </div>
+      </section>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className={`text-3xl lg:text-4xl font-bold mb-2 transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  {stat.number}
+      {/* Stats */}
+      <section className="py-16 border-y border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {[
+              { number: "10K+", label: "Tiendas creadas" },
+              { number: "500K+", label: "Productos vendidos" },
+              { number: "50+", label: "Ciudades" },
+              { number: "99.9%", label: "Uptime" }
+            ].map((stat, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="text-center">
+                  <div className="heading-xl text-4xl md:text-5xl mb-2">{stat.number}</div>
+                  <div className="label-mono">{stat.label}</div>
                 </div>
-                <div className={`text-sm transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>
-                  {stat.label}
-                </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Mission, Vision, Values */}
-      <section className={`py-20 transition-colors duration-300 ${
-        isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className={`text-3xl lg:text-4xl font-bold mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Nuestros Pilares
-            </h2>
-            <p className={`text-xl transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Los valores que guían cada decisión que tomamos
-            </p>
-          </div>
+      {/* Values */}
+      <section className="py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <Reveal>
+            <div className="mb-16">
+              <span className="label-mono mb-4 block">Nuestros pilares</span>
+              <h2 className="heading-lg text-4xl md:text-5xl">
+                Lo que nos define.
+              </h2>
+            </div>
+          </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {values.map((value, index) => (
-              <Card key={index} className={`text-center transition-all duration-300 hover:shadow-lg ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 hover:bg-gray-650' 
-                  : 'bg-white border-gray-200 hover:shadow-xl'
-              }`}>
-                <CardHeader>
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors duration-300 ${
-                    isDarkMode ? 'bg-blue-900' : 'bg-blue-100'
-                  }`}>
-                    <value.icon className={`h-8 w-8 transition-colors duration-300 ${
-                      isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                    }`} />
+          <div className="grid md:grid-cols-3 gap-4">
+            {values.map((value, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="border-2 border-border p-8 h-full group hover:border-foreground transition-colors">
+                  <div className="w-12 h-12 border-2 border-primary flex items-center justify-center mb-6">
+                    <value.icon className="w-6 h-6 text-primary" />
                   </div>
-                  <CardTitle className={`text-2xl transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {value.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className={`transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    {value.description}
-                  </p>
-                </CardContent>
-              </Card>
+                  <h3 className="font-display font-bold text-2xl mb-4">{value.title}</h3>
+                  <p className="text-muted-foreground leading-relaxed">{value.description}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
       {/* Timeline */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className={`text-3xl lg:text-4xl font-bold mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Nuestro Camino
-            </h2>
-            <p className={`text-xl transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Los hitos más importantes en nuestra historia
-            </p>
-          </div>
+      <section className="py-24 bg-foreground text-background">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <Reveal>
+            <div className="mb-16">
+              <span className="label-mono text-background/60 mb-4 block">Nuestro camino</span>
+              <h2 className="heading-lg text-4xl md:text-5xl">
+                Hitos importantes.
+              </h2>
+            </div>
+          </Reveal>
 
-          <div className="space-y-8">
-            {milestones.map((milestone, index) => (
-              <div key={index} className="flex items-start">
-                <div className={`flex-shrink-0 w-24 text-right mr-8 transition-colors duration-300 ${
-                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                }`}>
-                  <div className="text-lg font-bold">{milestone.year}</div>
+          <div className="space-y-0">
+            {milestones.map((milestone, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="flex border-t border-background/20 py-8 group">
+                  <div className="w-24 shrink-0">
+                    <span className="font-mono text-primary font-bold">{milestone.year}</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-display font-bold text-xl mb-2 group-hover:text-primary transition-colors">
+                      {milestone.title}
+                    </h3>
+                    <p className="text-background/60">{milestone.description}</p>
+                  </div>
                 </div>
-                <div className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-600 mt-2 mr-8"></div>
-                <div className="flex-1">
-                  <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {milestone.title}
-                  </h3>
-                  <p className={`transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    {milestone.description}
-                  </p>
-                </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
       {/* Team */}
-      <section className={`py-20 transition-colors duration-300 ${
-        isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className={`text-3xl lg:text-4xl font-bold mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Nuestro Equipo
-            </h2>
-            <p className={`text-xl transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Las personas que hacen posible e-vendify
-            </p>
-          </div>
+      <section className="py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <Reveal>
+            <div className="mb-16">
+              <span className="label-mono mb-4 block">El equipo</span>
+              <h2 className="heading-lg text-4xl md:text-5xl">
+                Quienes lo hacen posible.
+              </h2>
+            </div>
+          </Reveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {team.map((member, index) => (
-              <Card key={index} className={`text-center transition-all duration-300 hover:shadow-lg ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 hover:bg-gray-650' 
-                  : 'bg-white border-gray-200 hover:shadow-xl'
-              }`}>
-                <CardContent className="p-6">
-                  <div className="w-24 h-24 rounded-full bg-gray-300 mx-auto mb-4 flex items-center justify-center">
-                    <Users className={`h-12 w-12 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-500' : 'text-gray-400'
-                    }`} />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {team.map((member, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="border-2 border-border p-6 text-center group hover:border-foreground transition-colors">
+                  <div className="w-20 h-20 bg-muted flex items-center justify-center mx-auto mb-4 font-display font-bold text-2xl text-muted-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    {member.initials}
                   </div>
-                  <h3 className={`text-xl font-semibold mb-1 transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {member.name}
-                  </h3>
-                  <p className={`text-sm font-medium mb-3 transition-colors duration-300 ${
-                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                  }`}>
-                    {member.role}
-                  </p>
-                  <p className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    {member.description}
-                  </p>
-                </CardContent>
-              </Card>
+                  <h3 className="font-display font-bold text-lg mb-1">{member.name}</h3>
+                  <p className="text-sm text-primary">{member.role}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className={`text-3xl lg:text-4xl font-bold mb-6 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            ¿Quieres Ser Parte de Nuestra Historia?
-          </h2>
-          <p className={`text-xl mb-8 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            Únete a miles de emprendedores que ya están transformando sus negocios con e-vendify
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3">
-                Comenzar mi Tienda
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="/contact">
-              <Button size="lg" variant="outline" className={`px-8 py-3 transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white' 
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}>
-                Contáctanos
-              </Button>
-            </Link>
-          </div>
+      {/* CTA */}
+      <section className="py-24 border-t border-border">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <Reveal>
+            <h2 className="heading-xl text-4xl md:text-5xl lg:text-6xl mb-6">
+              Se parte de
+              <br />
+              <span className="text-highlight">nuestra historia.</span>
+            </h2>
+            <p className="text-xl text-muted-foreground mb-10 max-w-xl mx-auto">
+              Unete a miles de emprendedores que ya estan transformando sus negocios con e-vendify.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/register" className="btn-brutal inline-flex items-center gap-2 px-8 py-4">
+                Comenzar mi tienda
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link href="/contact" className="btn-brutal-outline px-8 py-4">
+                Contactanos
+              </Link>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className={`py-12 transition-colors duration-300 ${
-        isDarkMode ? 'bg-black text-gray-300' : 'bg-gray-900 text-white'
-      }`}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <Store className="h-8 w-8 text-blue-400 mr-3" />
-              <span className={`text-2xl font-bold transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-100' : 'text-white'
-              }`}>e-vendify</span>
+      <footer className="py-12 border-t border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-6">
+              <Link href="/">
+                <Image
+                  src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                  alt="e-vendify"
+                  width={140}
+                  height={40}
+                  className={theme === 'dark' ? 'h-8 w-auto' : 'h-6 w-auto'}
+                />
+              </Link>
+              <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
+                <Link href="/demo" className="hover:text-foreground transition-colors">Demo</Link>
+                <Link href="/contact" className="hover:text-foreground transition-colors">Contacto</Link>
+              </div>
             </div>
-            <p className={`mb-6 max-w-2xl mx-auto transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-400'
-            }`}>
-              Empoderando a los emprendedores locales con tecnología digital moderna 
-              para hacer crecer sus negocios y conectar mejor con sus clientes.
-            </p>
-            <div className="flex flex-wrap justify-center gap-6">
-              <Link href="/demo" className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-white'
-              }`}>Demo</Link>
-              <Link href="/about" className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-white'
-              }`}>Acerca de</Link>
-              <Link href="/contact" className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-white'
-              }`}>Contacto</Link>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>2025 e-vendify</span>
+              <span className="font-mono text-xs">Hecho en Mexico</span>
             </div>
-          </div>
-          <div className={`mt-8 pt-8 text-center transition-colors duration-300 ${
-            isDarkMode ? 'border-t border-gray-700 text-gray-500' : 'border-t border-gray-800 text-gray-400'
-          }`}>
-            <p>&copy; 2025 e-vendify. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

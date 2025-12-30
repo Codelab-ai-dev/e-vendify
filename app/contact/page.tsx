@@ -1,535 +1,428 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import Link from "next/link"
-import { Store, Moon, Sun, Mail, MessageCircle, Send, ArrowRight, Phone, Clock, HelpCircle, Zap } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
+import Image from "next/image"
+import { motion, useInView } from "framer-motion"
+import { ArrowLeft, ArrowRight, Mail, MessageCircle, Send, MapPin, Clock } from "lucide-react"
+import { useTheme } from "next-themes"
+import { toast } from "sonner"
+
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const ref = useRef(null)
+  const isInView = useInView(ref, { once: true, margin: "-50px" })
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 20 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  )
+}
 
 export default function ContactPage() {
-  const [isDarkMode, setIsDarkMode] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const [focusedField, setFocusedField] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    company: '',
     subject: '',
     message: ''
   })
 
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode)
-  }
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log('Formulario enviado:', formData)
-    alert('¡Gracias por tu mensaje! Te contactaremos pronto.')
-    setFormData({
-      name: '',
-      email: '',
-      company: '',
-      subject: '',
-      message: ''
-    })
+    setIsSubmitting(true)
+
+    // Simulate submission
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    toast.success("Mensaje enviado. Te contactaremos pronto.")
+    setFormData({ name: '', email: '', subject: '', message: '' })
+    setIsSubmitting(false)
   }
 
   const contactMethods = [
     {
       icon: Mail,
-      title: "Email Directo",
-      description: "Respuesta en 2-4 horas",
-      contact: "hola@e-vendify.com",
-      action: "mailto:hola@e-vendify.com",
-      color: "bg-blue-500"
+      label: "Email",
+      value: "hola@e-vendify.com",
+      href: "mailto:hola@e-vendify.com",
+      response: "2-4 horas"
     },
     {
       icon: MessageCircle,
-      title: "WhatsApp",
-      description: "Chat inmediato",
-      contact: "+52 55 9876 5432",
-      action: "https://wa.me/525598765432",
-      color: "bg-green-500"
+      label: "WhatsApp",
+      value: "+52 55 9876 5432",
+      href: "https://wa.me/525598765432",
+      response: "Inmediato"
+    },
+    {
+      icon: MapPin,
+      label: "Ubicacion",
+      value: "Ciudad de Mexico",
+      href: null,
+      response: null
+    },
+    {
+      icon: Clock,
+      label: "Horario",
+      value: "Lun-Vie 9:00-18:00",
+      href: null,
+      response: null
     }
   ]
 
   const faqs = [
     {
-      question: "¿Cuánto tiempo toma configurar mi tienda?",
-      answer: "Puedes tener tu tienda funcionando en menos de 30 minutos con nuestro proceso guiado."
+      question: "¿Cuanto tiempo toma configurar mi tienda?",
+      answer: "Menos de 30 minutos con nuestro proceso guiado."
     },
     {
-      question: "¿Qué soporte técnico ofrecen?",
-      answer: "Soporte 24/7 por chat, email y WhatsApp, más documentación completa."
+      question: "¿Que soporte tecnico ofrecen?",
+      answer: "Soporte 24/7 por chat, email y WhatsApp."
     },
     {
       question: "¿Puedo personalizar mi tienda?",
-      answer: "Sí, múltiples plantillas y personalización completa en planes superiores."
+      answer: "Si, multiples plantillas y personalizacion completa."
     },
     {
-      question: "¿Qué métodos de pago aceptan?",
-      answer: "Tarjetas, transferencias, PayPal, billeteras digitales y más."
+      question: "¿Que metodos de pago aceptan?",
+      answer: "Tarjetas, transferencias, PayPal y mas."
     }
   ]
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
-        : 'bg-gradient-to-br from-blue-50 via-white to-purple-50'
-    }`}>
-      {/* Header */}
-      <header className={`backdrop-blur-md border-b sticky top-0 z-50 transition-colors duration-300 ${
-        isDarkMode 
-          ? 'bg-gray-900/80 border-gray-700' 
-          : 'bg-white/80 border-gray-200'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center">
-                <img 
-                  src={isDarkMode ? "/vendify_dark.png" : "/vendify_white.png"} 
-                  alt="Vendify Logo" 
-                  className="transition-opacity duration-300" 
-                  style={{ height: "200px", width: "auto" }}
-                />
-              </Link>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleTheme}
-                className={`p-2 transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'text-gray-300 hover:text-white hover:bg-gray-800' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </Button>
-              <Link href="/login">
-                <Button variant="ghost" className={isDarkMode ? 'text-gray-300 hover:text-white hover:bg-gray-800' : ''}>
-                  Iniciar Sesión
-                </Button>
-              </Link>
-              <Link href="/register">
-                <Button className={isDarkMode ? 'bg-blue-600 hover:bg-blue-700' : ''}>
-                  Registrarse
-                </Button>
-              </Link>
-            </div>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Nav */}
+      <nav className="border-b border-border sticky top-0 z-50 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-8">
+            <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors group">
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm">Inicio</span>
+            </Link>
+            <Link href="/">
+              <Image
+                src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                alt="e-vendify"
+                width={140}
+                height={40}
+                className={theme === 'dark' ? 'h-8 w-auto' : 'h-6 w-auto'}
+              />
+            </Link>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {theme === 'dark' ? '○' : '●'}
+            </button>
+            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+              Ingresar
+            </Link>
+            <Link href="/register" className="btn-brutal text-sm px-5 py-2">
+              Crear tienda
+            </Link>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="py-16 lg:py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <Badge className={`mb-6 transition-colors duration-300 ${
-            isDarkMode 
-              ? 'bg-blue-900 text-blue-200 hover:bg-blue-800' 
-              : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
-          }`}>
-            💬 Contacta con Nosotros
-          </Badge>
-          <h1 className={`text-4xl lg:text-5xl font-bold mb-6 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            ¿Tienes Preguntas?
-            <br />
-            <span className="text-blue-600">Estamos Aquí para Ayudarte</span>
-          </h1>
-          <p className={`text-lg mb-8 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-600'
-          }`}>
-            Nuestro equipo está listo para resolver tus dudas y ayudarte a comenzar tu transformación digital.
-          </p>
-          
-          {/* Quick Contact Options */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button 
-              size="lg" 
-              className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={() => window.open('https://wa.me/525598765432', '_blank')}
-            >
-              <MessageCircle className="h-5 w-5 mr-2" />
-              Chat WhatsApp
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline" 
-              className={`transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white' 
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-              onClick={() => window.location.href = 'mailto:hola@e-vendify.com'}
-            >
-              <Mail className="h-5 w-5 mr-2" />
-              Enviar Email
-            </Button>
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="max-w-3xl"
+          >
+            <span className="label-mono mb-6 block">Contacto</span>
+            <h1 className="heading-xl text-5xl sm:text-6xl lg:text-7xl mb-8">
+              Hablemos de tu
+              <br />
+              <span className="text-primary">proyecto.</span>
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-xl leading-relaxed">
+              Estamos aqui para resolver tus dudas y ayudarte a comenzar tu negocio digital.
+            </p>
+          </motion.div>
         </div>
       </section>
 
-      {/* Contact Methods Grid */}
-      <section className={`py-16 transition-colors duration-300 ${
-        isDarkMode ? 'bg-gray-800' : 'bg-gray-50'
-      }`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className={`text-3xl font-bold mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Múltiples Formas de Contactarnos
-            </h2>
-            <p className={`text-lg transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Elige el método que prefieras para comunicarte con nosotros
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {contactMethods.map((method, index) => (
-              <Card key={index} className={`text-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600' 
-                  : 'bg-white border-gray-200'
-              }`}>
-                <CardContent className="p-8">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${method.color}`}>
-                    <method.icon className="h-8 w-8 text-white" />
+      {/* Contact Methods */}
+      <section className="py-8 border-y border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {contactMethods.map((method, i) => (
+              <Reveal key={i} delay={i * 0.1}>
+                <div className="py-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <method.icon className="w-4 h-4 text-primary" />
+                    <span className="label-mono">{method.label}</span>
                   </div>
-                  <h3 className={`text-xl font-semibold mb-3 transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {method.title}
-                  </h3>
-                  <p className={`text-sm mb-4 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                  }`}>
-                    {method.description}
-                  </p>
-                  <a 
-                    href={method.action}
-                    className={`inline-flex items-center text-sm font-medium transition-colors duration-300 ${
-                      isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'
-                    }`}
-                  >
-                    {method.contact}
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </a>
-                </CardContent>
-              </Card>
+                  {method.href ? (
+                    <a
+                      href={method.href}
+                      target={method.href.startsWith('http') ? '_blank' : undefined}
+                      rel={method.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                      className="font-medium hover:text-primary transition-colors"
+                    >
+                      {method.value}
+                    </a>
+                  ) : (
+                    <span className="font-medium">{method.value}</span>
+                  )}
+                  {method.response && (
+                    <p className="text-xs text-muted-foreground mt-1">Respuesta: {method.response}</p>
+                  )}
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Main Content: Form and FAQ */}
+      {/* Main Content */}
       <section className="py-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Contact Form - Takes 2/3 of space */}
-            <div className="lg:col-span-2">
-              <div className="mb-8">
-                <h2 className={`text-3xl font-bold mb-4 transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  Envíanos un Mensaje
-                </h2>
-                <p className={`text-lg transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>
-                  Completa el formulario y te responderemos en menos de 24 horas
-                </p>
-              </div>
-              
-              <Card className={`transition-colors duration-300 ${
-                isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-              }`}>
-                <CardContent className="p-8">
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <Label htmlFor="name" className={`text-sm font-medium mb-2 block transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-200' : 'text-gray-700'
-                        }`}>
-                          Nombre Completo *
-                        </Label>
-                        <Input
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="grid lg:grid-cols-5 gap-12 lg:gap-20">
+            {/* Form */}
+            <div className="lg:col-span-3">
+              <Reveal>
+                <div className="mb-10">
+                  <span className="label-mono mb-4 block">Formulario</span>
+                  <h2 className="heading-lg text-3xl md:text-4xl">
+                    Envianos un mensaje.
+                  </h2>
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.1}>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid sm:grid-cols-2 gap-6">
+                    {/* Name */}
+                    <div className="space-y-2">
+                      <label htmlFor="name" className="text-sm font-medium block">
+                        Nombre *
+                      </label>
+                      <div className={`border-2 transition-colors ${focusedField === 'name' ? 'border-primary' : 'border-border'}`}>
+                        <input
                           id="name"
                           name="name"
                           type="text"
                           required
                           value={formData.name}
                           onChange={handleInputChange}
-                          className={`transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                              : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-                          }`}
-                          placeholder="Tu nombre completo"
+                          onFocus={() => setFocusedField('name')}
+                          onBlur={() => setFocusedField(null)}
+                          placeholder="Tu nombre"
+                          className="w-full px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="email" className={`text-sm font-medium mb-2 block transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-200' : 'text-gray-700'
-                        }`}>
-                          Correo Electrónico *
-                        </Label>
-                        <Input
+                    </div>
+
+                    {/* Email */}
+                    <div className="space-y-2">
+                      <label htmlFor="email" className="text-sm font-medium block">
+                        Email *
+                      </label>
+                      <div className={`border-2 transition-colors ${focusedField === 'email' ? 'border-primary' : 'border-border'}`}>
+                        <input
                           id="email"
                           name="email"
                           type="email"
                           required
                           value={formData.email}
                           onChange={handleInputChange}
-                          className={`transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                              : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-                          }`}
+                          onFocus={() => setFocusedField('email')}
+                          onBlur={() => setFocusedField(null)}
                           placeholder="tu@email.com"
+                          className="w-full px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
                         />
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <Label htmlFor="company" className={`text-sm font-medium mb-2 block transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-200' : 'text-gray-700'
-                        }`}>
-                          Empresa (Opcional)
-                        </Label>
-                        <Input
-                          id="company"
-                          name="company"
-                          type="text"
-                          value={formData.company}
-                          onChange={handleInputChange}
-                          className={`transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                              : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-                          }`}
-                          placeholder="Nombre de tu empresa"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="subject" className={`text-sm font-medium mb-2 block transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-200' : 'text-gray-700'
-                        }`}>
-                          Asunto *
-                        </Label>
-                        <Input
-                          id="subject"
-                          name="subject"
-                          type="text"
-                          required
-                          value={formData.subject}
-                          onChange={handleInputChange}
-                          className={`transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                              : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-                          }`}
-                          placeholder="¿En qué podemos ayudarte?"
-                        />
-                      </div>
-                    </div>
+                  </div>
 
-                    <div>
-                      <Label htmlFor="message" className={`text-sm font-medium mb-2 block transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-200' : 'text-gray-700'
-                      }`}>
-                        Mensaje *
-                      </Label>
-                      <Textarea
+                  {/* Subject */}
+                  <div className="space-y-2">
+                    <label htmlFor="subject" className="text-sm font-medium block">
+                      Asunto *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'subject' ? 'border-primary' : 'border-border'}`}>
+                      <input
+                        id="subject"
+                        name="subject"
+                        type="text"
+                        required
+                        value={formData.subject}
+                        onChange={handleInputChange}
+                        onFocus={() => setFocusedField('subject')}
+                        onBlur={() => setFocusedField(null)}
+                        placeholder="¿En que podemos ayudarte?"
+                        className="w-full px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Message */}
+                  <div className="space-y-2">
+                    <label htmlFor="message" className="text-sm font-medium block">
+                      Mensaje *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'message' ? 'border-primary' : 'border-border'}`}>
+                      <textarea
                         id="message"
                         name="message"
                         required
-                        rows={5}
+                        rows={6}
                         value={formData.message}
                         onChange={handleInputChange}
-                        className={`transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
-                            : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-                        }`}
-                        placeholder="Cuéntanos más detalles sobre tu proyecto, pregunta o cómo podemos ayudarte..."
+                        onFocus={() => setFocusedField('message')}
+                        onBlur={() => setFocusedField(null)}
+                        placeholder="Cuentanos mas sobre tu proyecto..."
+                        className="w-full px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
                       />
                     </div>
+                  </div>
 
-                    <Button 
-                      type="submit" 
-                      size="lg"
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3"
-                    >
-                      <Send className="h-5 w-5 mr-2" />
-                      Enviar Mensaje
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn-brutal w-full sm:w-auto px-10 py-4 inline-flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent animate-spin" />
+                        Enviando...
+                      </>
+                    ) : (
+                      <>
+                        Enviar mensaje
+                        <Send className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              </Reveal>
             </div>
 
-            {/* FAQ Sidebar - Takes 1/3 of space */}
-            <div>
-              <div className="mb-8">
-                <h2 className={`text-2xl font-bold mb-4 transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  Preguntas Frecuentes
-                </h2>
-              </div>
-              
-              <div className="space-y-6">
-                {faqs.map((faq, index) => (
-                  <div key={index} className={`p-6 rounded-lg transition-colors duration-300 ${
-                    isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'
-                  }`}>
-                    <div className="flex items-start mb-3">
-                      <HelpCircle className={`h-5 w-5 mr-3 mt-0.5 flex-shrink-0 transition-colors duration-300 ${
-                        isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                      }`} />
-                      <h3 className={`text-sm font-semibold transition-colors duration-300 ${
-                        isDarkMode ? 'text-white' : 'text-gray-900'
-                      }`}>
+            {/* FAQ Sidebar */}
+            <div className="lg:col-span-2">
+              <Reveal>
+                <div className="mb-10">
+                  <span className="label-mono mb-4 block">FAQ</span>
+                  <h2 className="heading-lg text-3xl md:text-4xl">
+                    Preguntas frecuentes.
+                  </h2>
+                </div>
+              </Reveal>
+
+              <div className="space-y-4">
+                {faqs.map((faq, i) => (
+                  <Reveal key={i} delay={i * 0.1}>
+                    <div className="border-2 border-border p-6 hover:border-foreground transition-colors">
+                      <h3 className="font-display font-bold text-lg mb-2">
                         {faq.question}
                       </h3>
+                      <p className="text-muted-foreground text-sm">
+                        {faq.answer}
+                      </p>
                     </div>
-                    <p className={`text-sm ml-8 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                    }`}>
-                      {faq.answer}
-                    </p>
-                  </div>
+                  </Reveal>
                 ))}
               </div>
 
               {/* Quick Actions */}
-              <div className={`mt-8 p-6 rounded-lg transition-colors duration-300 ${
-                isDarkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'
-              }`}>
-                <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  ¿Necesitas Ayuda Inmediata?
-                </h3>
-                <div className="space-y-3">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className={`w-full justify-start transition-colors duration-300 ${
-                      isDarkMode 
-                        ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white' 
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                    onClick={() => window.open('https://wa.me/525598765432', '_blank')}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Chat WhatsApp
-                  </Button>
-                  <Link href="/support" className="block">
-                    <Button variant="outline" size="sm" className={`w-full justify-start transition-colors duration-300 ${
-                      isDarkMode 
-                        ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white' 
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}>
-                      <HelpCircle className="h-4 w-4 mr-2" />
-                      Centro de Soporte
-                    </Button>
-                  </Link>
+              <Reveal delay={0.4}>
+                <div className="mt-8 border-2 border-primary p-6">
+                  <h3 className="font-display font-bold text-lg mb-4">
+                    ¿Necesitas ayuda inmediata?
+                  </h3>
+                  <div className="space-y-3">
+                    <a
+                      href="https://wa.me/525598765432"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-brutal-outline w-full py-3 inline-flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Chat WhatsApp
+                    </a>
+                    <a
+                      href="mailto:hola@e-vendify.com"
+                      className="border-2 border-border w-full py-3 inline-flex items-center justify-center gap-2 hover:border-foreground transition-colors"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Enviar email
+                    </a>
+                  </div>
                 </div>
+              </Reveal>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="py-24 bg-foreground text-background">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+          <Reveal>
+            <h2 className="heading-xl text-4xl md:text-5xl lg:text-6xl mb-6">
+              ¿Listo para
+              <br />
+              <span className="text-primary">comenzar?</span>
+            </h2>
+            <p className="text-xl text-background/60 mb-10 max-w-xl mx-auto">
+              No esperes mas. Crea tu tienda digital hoy mismo y comienza a vender online.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/register" className="bg-primary text-primary-foreground px-8 py-4 font-medium inline-flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors">
+                Crear mi tienda gratis
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link href="/demo" className="border-2 border-background/20 text-background px-8 py-4 font-medium inline-flex items-center justify-center hover:border-background transition-colors">
+                Ver demo
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-12 border-t border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-6">
+              <Link href="/">
+                <Image
+                  src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                  alt="e-vendify"
+                  width={140}
+                  height={40}
+                  className={theme === 'dark' ? 'h-8 w-auto' : 'h-6 w-auto'}
+                />
+              </Link>
+              <div className="hidden sm:flex items-center gap-6 text-sm text-muted-foreground">
+                <Link href="/demo" className="hover:text-foreground transition-colors">Demo</Link>
+                <Link href="/about" className="hover:text-foreground transition-colors">Nosotros</Link>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className={`text-3xl lg:text-4xl font-bold mb-6 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            ¿Listo para Comenzar?
-          </h2>
-          <p className={`text-xl mb-8 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            No esperes más. Crea tu tienda digital hoy mismo y comienza a vender online.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3">
-                Crear mi Tienda Gratis
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="/features">
-              <Button size="lg" variant="outline" className={`px-8 py-3 transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white' 
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}>
-                Ver Características
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-       {/* Footer */}
-       <footer className={`py-12 transition-colors duration-300 ${
-        isDarkMode ? 'bg-black text-gray-300' : 'bg-gray-900 text-white'
-      }`}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <Store className="h-8 w-8 text-blue-400 mr-3" />
-              <span className={`text-2xl font-bold transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-100' : 'text-white'
-              }`}>e-vendify</span>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>2025 e-vendify</span>
+              <span className="font-mono text-xs">Hecho en Mexico</span>
             </div>
-            <p className={`mb-6 max-w-2xl mx-auto transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-400'
-            }`}>
-              Empoderando a los emprendedores locales con tecnología digital moderna 
-              para hacer crecer sus negocios y conectar mejor con sus clientes.
-            </p>
-            <div className="flex flex-wrap justify-center gap-6">
-              <Link href="/demo" className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-white'
-              }`}>Demo</Link>
-              <Link href="/about" className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-white'
-              }`}>Acerca de</Link>
-              <Link href="/contact" className={`transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-400 hover:text-white'
-              }`}>Contacto</Link>
-            </div>
-          </div>
-          <div className={`mt-8 pt-8 text-center transition-colors duration-300 ${
-            isDarkMode ? 'border-t border-gray-700 text-gray-500' : 'border-t border-gray-800 text-gray-400'
-          }`}>
-            <p>&copy; 2025 e-vendify. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

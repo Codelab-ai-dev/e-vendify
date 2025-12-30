@@ -2,52 +2,41 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import dynamic from "next/dynamic"
-import { Plus, Edit, Trash2, Eye, Store, LogOut, Package, Loader2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { motion } from "framer-motion"
+import { Plus, Edit, Trash2, Eye, LogOut, Package, ShoppingBag, DollarSign, Zap, Menu, X, Settings, BarChart3 } from "lucide-react"
 import { supabase, isAdmin } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useTheme } from "next-themes"
 
-// Lazy load componentes pesados - se cargan solo cuando se necesitan
+// Lazy load heavy components
 const StoreSettingsForm = dynamic(() => import("@/components/StoreSettingsForm"), {
   loading: () => (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-96 mt-2" />
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-32 w-full" />
-      </CardContent>
-    </Card>
+    <div className="border-2 border-border p-8 animate-pulse">
+      <div className="h-8 w-64 bg-muted mb-4" />
+      <div className="space-y-4">
+        <div className="h-12 w-full bg-muted" />
+        <div className="h-12 w-full bg-muted" />
+        <div className="h-24 w-full bg-muted" />
+      </div>
+    </div>
   ),
   ssr: false
 })
 
 const OnboardingChecklist = dynamic(() => import("@/components/dashboard/OnboardingChecklist"), {
   loading: () => (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-6 w-48" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-20 w-full" />
-      </CardContent>
-    </Card>
+    <div className="border-2 border-primary p-6 animate-pulse">
+      <div className="h-6 w-48 bg-muted mb-4" />
+      <div className="h-16 w-full bg-muted" />
+    </div>
   ),
   ssr: false
 })
 
-// Tipos para TypeScript
 interface BusinessProfile {
   id: string
   user_id: string | null
@@ -91,14 +80,15 @@ interface Product {
 export default function DashboardPage() {
   const { user, loading: authLoading, logout } = useAuth()
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
 
-  // Estados para datos de Supabase
   const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'productos' | 'configuracion'>('productos')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Función para cargar datos del usuario y sus productos
   const loadUserData = async () => {
     if (!user) return
 
@@ -106,8 +96,6 @@ export default function DashboardPage() {
       setLoading(true)
       setError(null)
 
-      // Verificar si el usuario es admin antes de cargar perfil de negocio
-      console.log('Verificando si el usuario es admin:', user.id)
       const { isAdmin: userIsAdmin, error: adminError } = await isAdmin(user.id)
 
       if (adminError) {
@@ -115,28 +103,19 @@ export default function DashboardPage() {
       }
 
       if (userIsAdmin) {
-        console.log('Usuario es admin, redirigiendo al dashboard de admin')
         toast.info('Redirigiendo al dashboard de administrador...')
         router.push('/admin/dashboard')
         return
       }
 
-      // Cargar perfil de negocio del usuario desde la tabla stores (solo para usuarios regulares)
-      console.log('Cargando perfil para usuario regular:', user.id)
       const { data: profileData, error: profileError } = await supabase
         .from('stores')
         .select('*')
         .eq('user_id', user.id)
         .single()
 
-      console.log('Resultado consulta perfil:', { profileData, profileError })
-
       if (profileError) {
-        console.error('Error al cargar perfil:', profileError)
-
-        // Si no existe el perfil, intentar crearlo automáticamente
         if (profileError.code === 'PGRST116') {
-          console.log('Perfil no encontrado, intentando crear uno nuevo...')
           await createBusinessProfile()
           return
         } else {
@@ -148,7 +127,6 @@ export default function DashboardPage() {
 
       setBusinessProfile(profileData)
 
-      // Cargar productos del negocio
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
@@ -170,30 +148,23 @@ export default function DashboardPage() {
     }
   }
 
-  // Protección de ruta: redirigir si no está autenticado
   useEffect(() => {
     if (!authLoading && !user) {
-      console.log('Usuario no autenticado, redirigiendo al home')
       router.push('/')
       return
     }
   }, [user, authLoading, router])
 
-  // Cargar datos del usuario y sus productos
   useEffect(() => {
     if (user && !authLoading) {
       loadUserData()
     }
   }, [user, authLoading])
 
-  // Función para crear perfil de negocio automáticamente
   const createBusinessProfile = async () => {
     if (!user) return
 
     try {
-      console.log('Creando perfil de negocio para usuario:', user.id)
-
-      // Intentar obtener el nombre del negocio de los metadatos del usuario
       const businessName = user.user_metadata?.business_name || 'Mi Negocio Digital'
 
       const { data: newProfile, error: createError } = await supabase
@@ -202,7 +173,7 @@ export default function DashboardPage() {
           user_id: user.id,
           business_name: businessName,
           email: user.email,
-          description: 'Descripción de mi negocio digital',
+          description: 'Descripcion de mi negocio digital',
           is_active: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -211,17 +182,14 @@ export default function DashboardPage() {
         .single()
 
       if (createError) {
-        console.error('Error al crear perfil:', createError)
         setError(`Error al crear perfil de negocio: ${createError.message}`)
         toast.error('No se pudo crear el perfil de negocio')
         return
       }
 
-      console.log('Perfil creado exitosamente:', newProfile)
       setBusinessProfile(newProfile)
-      toast.success('¡Perfil de negocio creado exitosamente!')
+      toast.success('Perfil de negocio creado exitosamente')
 
-      // Cargar productos (que probablemente estará vacío para un perfil nuevo)
       const { data: productsData } = await supabase
         .from('products')
         .select('*')
@@ -229,9 +197,7 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
 
       setProducts(productsData || [])
-
     } catch (error) {
-      console.error('Error inesperado al crear perfil:', error)
       setError('Error inesperado al crear el perfil de negocio')
       toast.error('Error inesperado')
     } finally {
@@ -239,7 +205,6 @@ export default function DashboardPage() {
     }
   }
 
-  // Función para eliminar producto
   const deleteProduct = async (productId: string) => {
     try {
       const { error } = await supabase
@@ -249,7 +214,6 @@ export default function DashboardPage() {
 
       if (error) throw error
 
-      // Actualizar contador de productos en la tienda
       if (businessProfile) {
         const { error: updateError } = await supabase
           .from('stores')
@@ -259,10 +223,7 @@ export default function DashboardPage() {
           })
           .eq('id', businessProfile.id)
 
-        if (updateError) {
-          console.error('Error al actualizar contador de productos:', updateError)
-        } else {
-          // Actualizar el estado local del businessProfile
+        if (!updateError) {
           setBusinessProfile({
             ...businessProfile,
             products_count: Math.max(0, (businessProfile.products_count || 1) - 1)
@@ -270,67 +231,52 @@ export default function DashboardPage() {
         }
       }
 
-      // Actualizar la lista local
       setProducts(products.filter(p => p.id !== productId))
-      toast.success('Producto eliminado exitosamente')
+      toast.success('Producto eliminado')
     } catch (error) {
-      console.error('Error al eliminar producto:', error)
       toast.error('Error al eliminar el producto')
     }
   }
 
-  // Función para cerrar sesión
   const handleLogout = async () => {
     try {
       await logout()
-      router.push('/login') // Redirigir a la página de login
+      router.push('/login')
     } catch (error) {
-      console.error('Error al cerrar sesión:', error)
-      toast.error('Error al cerrar sesión')
+      toast.error('Error al cerrar sesion')
     }
   }
 
-  // Mostrar loading mientras se cargan los datos de autenticación
+  // Loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Verificando autenticación...</p>
+          <div className="w-8 h-8 border-2 border-foreground border-t-transparent animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground font-mono text-sm">Verificando...</p>
         </div>
       </div>
     )
   }
 
-  // Si no hay usuario autenticado, no mostrar nada (se redirigirá)
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
-  // Estados de carga de datos
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="border-b bg-white shadow-sm h-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <div className="space-y-1">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-20" />
-              </div>
-            </div>
-            <Skeleton className="h-9 w-24 rounded-md" />
+      <div className="min-h-screen bg-background">
+        <div className="border-b-2 border-border h-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+            <div className="h-10 w-48 bg-muted animate-pulse" />
+            <div className="h-10 w-24 bg-muted animate-pulse" />
           </div>
         </div>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          <Skeleton className="h-48 w-full rounded-xl" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Skeleton className="h-32 rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
-            <Skeleton className="h-32 rounded-xl" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+          <div className="h-32 bg-muted animate-pulse" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="h-32 bg-muted animate-pulse" />
+            <div className="h-32 bg-muted animate-pulse" />
+            <div className="h-32 bg-muted animate-pulse" />
           </div>
-          <Skeleton className="h-96 rounded-xl" />
         </main>
       </div>
     )
@@ -338,240 +284,380 @@ export default function DashboardPage() {
 
   if (error || !businessProfile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Store className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Error al cargar datos</h2>
-          <p className="text-gray-600 mb-4">{error || 'No se pudo cargar el perfil de negocio'}</p>
-          <Button onClick={() => window.location.reload()}>Reintentar</Button>
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 border-2 border-border flex items-center justify-center mx-auto mb-6">
+            <ShoppingBag className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h2 className="font-display font-bold text-2xl mb-2">Error al cargar datos</h2>
+          <p className="text-muted-foreground mb-6">{error || 'No se pudo cargar el perfil de negocio'}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn-brutal px-6 py-3"
+          >
+            Reintentar
+          </button>
         </div>
       </div>
     )
   }
 
+  const avgPrice = products.length > 0
+    ? Math.round(products.reduce((acc, p) => acc + p.price, 0) / products.length)
+    : 0
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Store className="h-8 w-8 text-blue-600 mr-3" />
+      <header className="border-b-2 border-border sticky top-0 z-50 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex justify-between items-center h-20">
+            {/* Logo & Store Name */}
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Image
+                  src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                  alt="e-vendify"
+                  width={160}
+                  height={45}
+                  className={theme === 'dark' ? 'h-10 w-auto hidden sm:block' : 'h-8 w-auto hidden sm:block'}
+                />
+              </Link>
+              <div className="hidden sm:block w-px h-8 bg-border" />
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">{businessProfile.business_name}</h1>
-                <p className="text-sm text-gray-500">Panel de administración</p>
+                <h1 className="font-display font-bold text-lg sm:text-xl truncate max-w-[200px] sm:max-w-none">
+                  {businessProfile.business_name || businessProfile.name}
+                </h1>
+                <p className="text-xs text-muted-foreground font-mono">Dashboard</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Link href={`/store/${businessProfile.slug || businessProfile.id}`}>
-                <Button variant="outline" size="sm" className="hidden sm:flex">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver tienda
-                </Button>
-                <Button variant="outline" size="icon" className="sm:hidden">
-                  <Eye className="h-4 w-4" />
-                </Button>
+
+            {/* Desktop Nav */}
+            <div className="hidden md:flex items-center gap-4">
+              <Link
+                href={`/store/${businessProfile.slug || businessProfile.id}`}
+                className="btn-brutal-outline px-4 py-2 text-sm inline-flex items-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                Ver tienda
               </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="rounded-full p-0">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {(businessProfile.business_name || businessProfile.name || 'T').charAt(0).toUpperCase()}
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Cerrar sesión
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="w-10 h-10 border-2 border-border flex items-center justify-center hover:border-foreground transition-colors"
+              >
+                {theme === 'dark' ? '○' : '●'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-10 h-10 border-2 border-border flex items-center justify-center hover:border-foreground hover:text-primary transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden w-10 h-10 border-2 border-border flex items-center justify-center"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="md:hidden border-t-2 border-border bg-background p-4 space-y-3"
+          >
+            <Link
+              href={`/store/${businessProfile.slug || businessProfile.id}`}
+              className="btn-brutal-outline w-full py-3 inline-flex items-center justify-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              Ver tienda
+            </Link>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="flex-1 py-3 border-2 border-border flex items-center justify-center gap-2"
+              >
+                {theme === 'dark' ? '○ Claro' : '● Oscuro'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 py-3 border-2 border-border flex items-center justify-center gap-2 hover:border-primary hover:text-primary"
+              >
+                <LogOut className="w-4 h-4" />
+                Salir
+              </button>
+            </div>
+          </motion.div>
+        )}
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
-        <OnboardingChecklist profile={businessProfile} productsCount={products.length} />
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{products.length}</div>
-              <p className="text-xs text-muted-foreground">productos en tu catálogo</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Precio Promedio</CardTitle>
-              <span className="text-lg">$</span>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                ${products.length > 0 ? Math.round(products.reduce((acc: number, p: Product) => acc + p.price, 0) / products.length).toLocaleString() : '0'}
-              </div>
-              <p className="text-xs text-muted-foreground">precio promedio de productos</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Estado</CardTitle>
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">Activa</div>
-              <p className="text-xs text-muted-foreground">tu tienda está online</p>
-            </CardContent>
-          </Card>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {/* Onboarding */}
+        <div className="mb-8">
+          <OnboardingChecklist profile={businessProfile} productsCount={products.length} />
         </div>
 
-        {/* Store Settings Section */}
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Configuración de Tienda</CardTitle>
-                <CardDescription>Edita la información de tu tienda</CardDescription>
-              </div>
+        {/* Stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="border-2 border-border p-6 hover:border-foreground transition-colors"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Productos</span>
+              <Package className="w-5 h-5 text-primary" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <StoreSettingsForm businessProfile={businessProfile} onUpdate={loadUserData} />
-          </CardContent>
-        </Card>
+            <div className="font-display font-bold text-4xl mb-1">{products.length}</div>
+            <p className="text-sm text-muted-foreground">en tu catalogo</p>
+          </motion.div>
 
-        {/* Products Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="border-2 border-border p-6 hover:border-foreground transition-colors"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Precio promedio</span>
+              <DollarSign className="w-5 h-5 text-primary" />
+            </div>
+            <div className="font-display font-bold text-4xl mb-1">${avgPrice.toLocaleString()}</div>
+            <p className="text-sm text-muted-foreground">MXN por producto</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="border-2 border-primary p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Estado</span>
+              <div className="w-3 h-3 bg-primary animate-pulse" />
+            </div>
+            <div className="font-display font-bold text-4xl mb-1 text-primary">Activa</div>
+            <p className="text-sm text-muted-foreground">tu tienda esta online</p>
+          </motion.div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b-2 border-border">
+          <button
+            onClick={() => setActiveTab('productos')}
+            className={`px-6 py-4 font-medium text-sm transition-colors relative ${
+              activeTab === 'productos'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Package className="w-4 h-4" />
+              Productos
+            </span>
+            {activeTab === 'productos' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('configuracion')}
+            className={`px-6 py-4 font-medium text-sm transition-colors relative ${
+              activeTab === 'configuracion'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Configuracion
+            </span>
+            {activeTab === 'configuracion' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+              />
+            )}
+          </button>
+        </div>
+
+        {/* Products Tab */}
+        {activeTab === 'productos' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
-                <CardTitle>Productos</CardTitle>
-                <CardDescription>Gestiona el catálogo de tu tienda digital</CardDescription>
+                <h2 className="font-display font-bold text-2xl">Productos</h2>
+                <p className="text-muted-foreground text-sm">Gestiona tu catalogo</p>
               </div>
               {businessProfile.plan === 'basic' && products.length >= 10 ? (
-                <div className="text-center w-full sm:w-auto">
-                  <Button disabled className="bg-gray-400 cursor-not-allowed w-full sm:w-auto">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Límite alcanzado (10/10)
-                  </Button>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Actualiza a plan premium para agregar más productos
+                <div className="text-right">
+                  <button disabled className="btn-brutal opacity-50 cursor-not-allowed px-6 py-3">
+                    <Plus className="w-4 h-4 mr-2 inline" />
+                    Limite alcanzado
+                  </button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Actualiza a premium para mas productos
                   </p>
                 </div>
               ) : (
-                <div className="text-center w-full sm:w-auto">
-                  <Link href="/dashboard/products/new">
-                    <Button className="bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Agregar producto
-                    </Button>
+                <div className="text-right">
+                  <Link href="/dashboard/products/new" className="btn-brutal px-6 py-3 inline-flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Agregar producto
                   </Link>
                   {businessProfile.plan === 'basic' && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Plan Básico: {products.length}/10 productos
+                    <p className="text-xs text-muted-foreground mt-2 font-mono">
+                      {products.length}/10 productos
                     </p>
                   )}
                 </div>
               )}
             </div>
-          </CardHeader>
-          <CardContent>
+
+            {/* Products List */}
             {products.length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tienes productos aún</h3>
-                <p className="text-gray-500 mb-4">Comienza agregando tu primer producto a la tienda</p>
-                {businessProfile.plan === 'basic' && products.length >= 10 ? (
-                  <div>
-                    <Button disabled className="bg-gray-400 cursor-not-allowed">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Límite alcanzado (10/10)
-                    </Button>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Actualiza a plan premium para agregar más productos
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <Link href="/dashboard/products/new">
-                      <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Agregar primer producto
-                      </Button>
-                    </Link>
-                    {businessProfile.plan === 'basic' && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Plan Básico: {products.length}/10 productos
-                      </p>
-                    )}
-                  </div>
-                )}
+              <div className="border-2 border-dashed border-border p-12 text-center">
+                <div className="w-16 h-16 border-2 border-border flex items-center justify-center mx-auto mb-6">
+                  <Package className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="font-display font-bold text-xl mb-2">Sin productos</h3>
+                <p className="text-muted-foreground mb-6">Agrega tu primer producto para comenzar</p>
+                <Link href="/dashboard/products/new" className="btn-brutal px-6 py-3 inline-flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Agregar primer producto
+                </Link>
               </div>
             ) : (
-              <div className="space-y-4">
-                {products.map((product: Product) => (
-                  <div
+              <div className="space-y-3">
+                {products.map((product, i) => (
+                  <motion.div
                     key={product.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4 transition-colors"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="border-2 border-border p-4 hover:border-foreground transition-colors group"
                   >
-                    <div className="flex items-start sm:items-center space-x-4 w-full">
-                      <img
-                        src={product.image_url || "/placeholder.svg?height=80&width=80&text=Producto"}
-                        alt={product.name}
-                        className="w-16 h-16 object-cover rounded-lg shrink-0"
-                      />
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                      {/* Image */}
+                      <div className="w-20 h-20 bg-muted flex-shrink-0 overflow-hidden">
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">{product.name}</h3>
-                        <p className="text-sm text-gray-500 truncate">{product.description || 'Sin descripción'}</p>
-                        <div className="flex flex-wrap items-center mt-1 gap-2">
-                          <Badge variant="secondary" className="text-green-700 bg-green-100">
+                        <h3 className="font-display font-bold text-lg truncate">{product.name}</h3>
+                        <p className="text-sm text-muted-foreground truncate mb-2">
+                          {product.description || 'Sin descripcion'}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="px-3 py-1 bg-primary text-primary-foreground text-sm font-mono font-bold">
                             ${product.price.toLocaleString()}
-                          </Badge>
+                          </span>
                           {product.category && (
-                            <Badge variant="outline">
+                            <span className="px-3 py-1 border border-border text-sm">
                               {product.category}
-                            </Badge>
+                            </span>
                           )}
-                          <Badge variant={product.is_available ? "default" : "secondary"}>
+                          <span className={`px-3 py-1 text-sm ${
+                            product.is_available
+                              ? 'bg-foreground text-background'
+                              : 'bg-muted text-muted-foreground'
+                          }`}>
                             {product.is_available ? 'Disponible' : 'No disponible'}
-                          </Badge>
+                          </span>
                         </div>
                       </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <Link
+                          href={`/dashboard/products/edit/${product.id}`}
+                          className="flex-1 sm:flex-none px-4 py-2 border-2 border-border hover:border-foreground transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span className="sm:hidden">Editar</span>
+                        </Link>
+                        <button
+                          onClick={() => {
+                            if (confirm('¿Eliminar este producto?')) {
+                              deleteProduct(product.id)
+                            }
+                          }}
+                          className="flex-1 sm:flex-none px-4 py-2 border-2 border-border hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="sm:hidden">Eliminar</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
-                      <Link href={`/dashboard/products/edit/${product.id}`}>
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => {
-                          if (confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-                            deleteProduct(product.id)
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </motion.div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'configuracion' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="mb-6">
+              <h2 className="font-display font-bold text-2xl">Configuracion</h2>
+              <p className="text-muted-foreground text-sm">Edita la informacion de tu tienda</p>
+            </div>
+            <div className="border-2 border-border p-6 sm:p-8">
+              <StoreSettingsForm businessProfile={businessProfile} onUpdate={loadUserData} />
+            </div>
+          </motion.div>
+        )}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t-2 border-border py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+            <Link href="/">
+              <Image
+                src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                alt="e-vendify"
+                width={120}
+                height={35}
+                className={theme === 'dark' ? 'h-8 w-auto opacity-60 hover:opacity-100 transition-opacity' : 'h-6 w-auto opacity-60 hover:opacity-100 transition-opacity'}
+              />
+            </Link>
+            <span className="font-mono text-xs">2025 e-vendify</span>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

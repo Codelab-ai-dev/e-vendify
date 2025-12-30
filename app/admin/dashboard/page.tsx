@@ -2,42 +2,42 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
+import { motion } from "framer-motion"
 import {
   Store,
   DollarSign,
   TrendingUp,
   Eye,
-  MoreHorizontal,
   Search,
-  Filter,
-  Download,
   Shield,
   LogOut,
   Package,
   Calendar,
   MapPin,
   Plus,
-  Loader2,
+  Menu,
+  X,
+  ExternalLink,
+  MoreHorizontal,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getAllStores, getDashboardStats, type Store as StoreType } from "@/lib/stores"
 import { useAuth } from "@/hooks/useAuth"
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { useTheme } from "next-themes"
 
 export const dynamic = 'force-dynamic'
 
 export default function AdminDashboardPage() {
   const { user, loading: authLoading, logout } = useAuth()
   const router = useRouter()
+  const { theme, setTheme } = useTheme()
+
   const [stores, setStores] = useState<StoreType[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [loading, setLoading] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [focusedSearch, setFocusedSearch] = useState(false)
   const [stats, setStats] = useState({
     totalStores: 0,
     activeStores: 0,
@@ -45,29 +45,24 @@ export default function AdminDashboardPage() {
     totalProducts: 0
   })
 
-  // Protección de ruta: redirigir si no está autenticado
   useEffect(() => {
     if (!authLoading && !user) {
-      console.log('Usuario no autenticado, redirigiendo al home')
       router.push('/')
       return
     }
   }, [user, authLoading, router])
 
-  // Cargar datos de Supabase
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true)
 
-        // Cargar tiendas
         const { data: storesData, error: storesError } = await getAllStores()
         if (storesError) {
           console.error('Error loading stores:', storesError)
           return
         }
 
-        // Cargar estadísticas
         const { stats: dashboardStats, error: statsError } = await getDashboardStats()
         if (statsError) {
           console.error('Error loading stats:', statsError)
@@ -91,7 +86,6 @@ export default function AdminDashboardPage() {
     loadData()
   }, [user])
 
-  // Filtrar tiendas por búsqueda
   const filteredStores = stores.filter(
     (store) =>
       store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -99,308 +93,455 @@ export default function AdminDashboardPage() {
       (store.city && store.city.toLowerCase().includes(searchTerm.toLowerCase())),
   )
 
-  const getStatusBadge = (status: string) => {
-    return status === "active" ? (
-      <Badge className="bg-green-100 text-green-800">Activa</Badge>
-    ) : (
-      <Badge variant="secondary">Inactiva</Badge>
-    )
-  }
-
-  const getPlanBadge = (plan: string) => {
-    return plan === "premium" ? (
-      <Badge className="bg-purple-100 text-purple-800">Premium</Badge>
-    ) : (
-      <Badge className="bg-blue-100 text-blue-800">Básico</Badge>
-    )
-  }
-
   const handleLogout = async () => {
     try {
       await logout()
-      router.push('/admin/login') // Redirigir a la página de login del admin
+      router.push('/admin/login')
     } catch (error) {
       console.error('Error al cerrar sesión:', error)
     }
   }
 
-  // Mostrar loading mientras se cargan los datos de autenticación
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Verificando autenticación...</p>
+          <div className="w-8 h-8 border-2 border-foreground border-t-transparent animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground font-mono text-sm">Verificando...</p>
         </div>
       </div>
     )
   }
 
-  // Si no hay usuario autenticado, no mostrar nada (se redirigirá)
-  if (!user) {
-    return null
-  }
+  if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Shield className="h-8 w-8 text-red-600 mr-3" />
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">Panel de Administración</h1>
-                <p className="text-sm text-gray-500">MiKioskoDigital</p>
+      <header className="border-b-2 border-border sticky top-0 z-50 bg-background">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex justify-between items-center h-20">
+            {/* Logo & Title */}
+            <div className="flex items-center gap-4">
+              <Link href="/">
+                <Image
+                  src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                  alt="e-vendify"
+                  width={160}
+                  height={45}
+                  className={theme === 'dark' ? 'h-10 w-auto hidden sm:block' : 'h-8 w-auto hidden sm:block'}
+                />
+              </Link>
+              <div className="hidden sm:block w-px h-8 bg-border" />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-primary flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="font-display font-bold text-lg">Admin</h1>
+                  <p className="text-xs text-muted-foreground font-mono">Panel de control</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar datos
-              </Button>
-              <Link href="/admin/stores/new">
-                <Button className="bg-red-600 hover:bg-red-700">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear nueva tienda
-                </Button>
+
+            {/* Desktop Nav */}
+            <div className="hidden md:flex items-center gap-3">
+              <Link
+                href="/admin/stores/new"
+                className="btn-brutal px-4 py-2 text-sm inline-flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva tienda
               </Link>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      A
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Cerrar sesión
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="w-10 h-10 border-2 border-border flex items-center justify-center hover:border-foreground transition-colors"
+              >
+                {theme === 'dark' ? '○' : '●'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="w-10 h-10 border-2 border-border flex items-center justify-center hover:border-primary hover:text-primary transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden w-10 h-10 border-2 border-border flex items-center justify-center"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="md:hidden border-t-2 border-border bg-background p-4 space-y-3"
+          >
+            <Link
+              href="/admin/stores/new"
+              className="btn-brutal w-full py-3 inline-flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Nueva tienda
+            </Link>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="flex-1 py-3 border-2 border-border flex items-center justify-center gap-2"
+              >
+                {theme === 'dark' ? '○ Claro' : '● Oscuro'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 py-3 border-2 border-border flex items-center justify-center gap-2 hover:border-primary hover:text-primary"
+              >
+                <LogOut className="w-4 h-4" />
+                Salir
+              </button>
+            </div>
+          </motion.div>
+        )}
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Tiendas</CardTitle>
-              <Store className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Cargando...</span>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="border-2 border-border p-6 hover:border-foreground transition-colors"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Tiendas</span>
+              <Store className="w-5 h-5 text-primary" />
+            </div>
+            {loading ? (
+              <div className="h-10 w-20 bg-muted animate-pulse" />
+            ) : (
+              <>
+                <div className="font-display font-bold text-4xl mb-1">{stats.totalStores}</div>
+                <p className="text-sm text-muted-foreground">{stats.activeStores} activas</p>
+              </>
+            )}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="border-2 border-border p-6 hover:border-foreground transition-colors"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Activas</span>
+              <TrendingUp className="w-5 h-5 text-primary" />
+            </div>
+            {loading ? (
+              <div className="h-10 w-20 bg-muted animate-pulse" />
+            ) : (
+              <>
+                <div className="font-display font-bold text-4xl mb-1">{stats.activeStores}</div>
+                <p className="text-sm text-muted-foreground">
+                  {stats.totalStores > 0 ? Math.round((stats.activeStores / stats.totalStores) * 100) : 0}% del total
+                </p>
+              </>
+            )}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="border-2 border-primary p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Ingresos</span>
+              <DollarSign className="w-5 h-5 text-primary" />
+            </div>
+            {loading ? (
+              <div className="h-10 w-24 bg-muted animate-pulse" />
+            ) : (
+              <>
+                <div className="font-display font-bold text-4xl mb-1 text-primary">
+                  ${(stats.totalRevenue / 1000000).toFixed(1)}M
                 </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.totalStores}</div>
-                  <p className="text-xs text-muted-foreground">{stats.activeStores} activas</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tiendas Activas</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Cargando...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.activeStores}</div>
-                  <p className="text-xs text-muted-foreground">
-                    {stats.totalStores > 0 ? Math.round((stats.activeStores / stats.totalStores) * 100) : 0}% del total
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ingresos Totales</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Cargando...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">${(stats.totalRevenue / 1000000).toFixed(1)}M</div>
-                  <p className="text-xs text-muted-foreground">este mes</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Cargando...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="text-2xl font-bold">{stats.totalProducts}</div>
-                  <p className="text-xs text-muted-foreground">en todas las tiendas</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                <p className="text-sm text-muted-foreground">este mes</p>
+              </>
+            )}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="border-2 border-border p-6 hover:border-foreground transition-colors"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="label-mono">Productos</span>
+              <Package className="w-5 h-5 text-primary" />
+            </div>
+            {loading ? (
+              <div className="h-10 w-20 bg-muted animate-pulse" />
+            ) : (
+              <>
+                <div className="font-display font-bold text-4xl mb-1">{stats.totalProducts}</div>
+                <p className="text-sm text-muted-foreground">en plataforma</p>
+              </>
+            )}
+          </motion.div>
         </div>
 
-        {/* Stores Table */}
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
+        {/* Stores Section */}
+        <div className="border-2 border-border">
+          {/* Header */}
+          <div className="border-b-2 border-border p-6">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div>
-                <CardTitle>Tiendas Registradas</CardTitle>
-                <CardDescription>Gestiona todas las tiendas de la plataforma</CardDescription>
+                <h2 className="font-display font-bold text-2xl">Tiendas registradas</h2>
+                <p className="text-muted-foreground text-sm">Gestiona todas las tiendas de la plataforma</p>
               </div>
-              <div className="flex items-center space-x-2">
-                <Link href="/admin/stores/new">
-                  <Button className="bg-red-600 hover:bg-red-700" size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nueva tienda
-                  </Button>
-                </Link>
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
+              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                {/* Search */}
+                <div className={`relative border-2 transition-colors ${focusedSearch ? 'border-primary' : 'border-border'}`}>
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
                     placeholder="Buscar tiendas..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8 w-64"
+                    onFocus={() => setFocusedSearch(true)}
+                    onBlur={() => setFocusedSearch(false)}
+                    className="w-full sm:w-64 pl-10 pr-4 py-3 bg-transparent focus:outline-none"
                   />
                 </div>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtros
-                </Button>
+                <Link
+                  href="/admin/stores/new"
+                  className="btn-brutal px-4 py-3 inline-flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Nueva tienda
+                </Link>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin mr-2" />
-                <span className="text-lg">Cargando tiendas...</span>
+          </div>
+
+          {/* Table */}
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="w-8 h-8 border-2 border-foreground border-t-transparent animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Cargando tiendas...</p>
+            </div>
+          ) : filteredStores.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 border-2 border-border flex items-center justify-center mx-auto mb-6">
+                <Store className="w-8 h-8 text-muted-foreground" />
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tienda</TableHead>
-                      <TableHead>Propietario</TableHead>
-                      <TableHead>Ubicación</TableHead>
-                      <TableHead>Plan</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Productos</TableHead>
-                      <TableHead>Ingresos/Mes</TableHead>
-                      <TableHead>Último acceso</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStores.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-gray-500">
-                          {searchTerm ? 'No se encontraron tiendas que coincidan con la búsqueda' : 'No hay tiendas registradas'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredStores.map((store) => (
-                        <TableRow key={store.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{store.name}</div>
-                              <div className="text-sm text-gray-500">{store.email}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{store.owner}</div>
-                              <div className="text-sm text-gray-500">{store.phone || 'No especificado'}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center">
-                              <MapPin className="h-4 w-4 mr-1 text-gray-400" />
-                              {store.city || 'No especificada'}
-                            </div>
-                          </TableCell>
-                          <TableCell>{getPlanBadge(store.plan)}</TableCell>
-                          <TableCell>{getStatusBadge(store.status)}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center">
-                              <Package className="h-4 w-4 mr-1 text-gray-400" />
-                              {store.products_count}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium text-green-600">${store.monthly_revenue.toLocaleString()}</div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Calendar className="h-4 w-4 mr-1" />
-                              {new Date(store.last_login).toLocaleDateString()}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/admin/stores/${store.id}`}>
-                                    <Eye className="h-4 w-4 mr-2" />
-                                    Ver detalles
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/store/${store.name.toLowerCase().replace(/\s+/g, "-")}`}>
-                                    <Store className="h-4 w-4 mr-2" />
-                                    Ver tienda pública
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">Suspender tienda</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+              <h3 className="font-display font-bold text-xl mb-2">
+                {searchTerm ? 'Sin resultados' : 'Sin tiendas'}
+              </h3>
+              <p className="text-muted-foreground mb-6">
+                {searchTerm ? 'No se encontraron tiendas que coincidan' : 'No hay tiendas registradas'}
+              </p>
+              {!searchTerm && (
+                <Link href="/admin/stores/new" className="btn-brutal px-6 py-3 inline-flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Crear primera tienda
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {/* Desktop Table */}
+              <table className="w-full hidden lg:table">
+                <thead className="border-b-2 border-border bg-muted/30">
+                  <tr>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Tienda</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Propietario</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Ubicacion</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Plan</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Estado</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Productos</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Ingresos</th>
+                    <th className="text-left p-4 font-mono text-xs uppercase tracking-wider text-muted-foreground">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStores.map((store, i) => (
+                    <motion.tr
+                      key={store.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.03 }}
+                      className="border-b border-border hover:bg-muted/20 transition-colors"
+                    >
+                      <td className="p-4">
+                        <div>
+                          <div className="font-display font-bold">{store.name}</div>
+                          <div className="text-sm text-muted-foreground">{store.email}</div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div>
+                          <div className="font-medium">{store.owner}</div>
+                          <div className="text-sm text-muted-foreground">{store.phone || '-'}</div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1 text-sm">
+                          <MapPin className="w-4 h-4 text-muted-foreground" />
+                          {store.city || '-'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 text-xs font-mono font-bold ${
+                          store.plan === 'premium'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'border border-border'
+                        }`}>
+                          {store.plan === 'premium' ? 'PREMIUM' : 'BASICO'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 text-xs font-mono ${
+                          store.status === 'active'
+                            ? 'bg-foreground text-background'
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {store.status === 'active' ? 'ACTIVA' : 'INACTIVA'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1">
+                          <Package className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-mono">{store.products_count}</span>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="font-mono font-bold text-primary">
+                          ${store.monthly_revenue.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/admin/stores/${store.id}`}
+                            className="px-3 py-2 border-2 border-border hover:border-foreground transition-colors text-sm"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                          <Link
+                            href={`/store/${store.slug || store.id}`}
+                            target="_blank"
+                            className="px-3 py-2 border-2 border-border hover:border-primary hover:text-primary transition-colors text-sm"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Link>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile Cards */}
+              <div className="lg:hidden divide-y-2 divide-border">
+                {filteredStores.map((store, i) => (
+                  <motion.div
+                    key={store.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="p-4 space-y-3"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-display font-bold text-lg">{store.name}</h3>
+                        <p className="text-sm text-muted-foreground">{store.owner}</p>
+                      </div>
+                      <span className={`px-3 py-1 text-xs font-mono ${
+                        store.status === 'active'
+                          ? 'bg-foreground text-background'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {store.status === 'active' ? 'ACTIVA' : 'INACTIVA'}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`px-3 py-1 text-xs font-mono font-bold ${
+                        store.plan === 'premium'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'border border-border'
+                      }`}>
+                        {store.plan === 'premium' ? 'PREMIUM' : 'BASICO'}
+                      </span>
+                      <span className="px-3 py-1 text-xs border border-border flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {store.city || '-'}
+                      </span>
+                      <span className="px-3 py-1 text-xs border border-border flex items-center gap-1">
+                        <Package className="w-3 h-3" />
+                        {store.products_count}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2">
+                      <span className="font-mono font-bold text-primary text-lg">
+                        ${store.monthly_revenue.toLocaleString()}/mes
+                      </span>
+                      <div className="flex gap-2">
+                        <Link
+                          href={`/admin/stores/${store.id}`}
+                          className="px-4 py-2 border-2 border-border hover:border-foreground transition-colors text-sm inline-flex items-center gap-2"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Ver
+                        </Link>
+                        <Link
+                          href={`/store/${store.slug || store.id}`}
+                          target="_blank"
+                          className="px-4 py-2 border-2 border-border hover:border-primary hover:text-primary transition-colors text-sm inline-flex items-center gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </Link>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          )}
+        </div>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t-2 border-border py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+            <Link href="/">
+              <Image
+                src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
+                alt="e-vendify"
+                width={120}
+                height={35}
+                className={theme === 'dark' ? 'h-8 w-auto opacity-60 hover:opacity-100 transition-opacity' : 'h-6 w-auto opacity-60 hover:opacity-100 transition-opacity'}
+              />
+            </Link>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-primary animate-pulse" />
+              <span className="font-mono text-xs">Admin Panel</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

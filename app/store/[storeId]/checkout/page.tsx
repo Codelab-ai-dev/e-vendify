@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import { useCart } from "@/lib/store/useCart"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Loader2, ArrowLeft, ShieldCheck, CreditCard } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, ArrowLeft, ShieldCheck, CreditCard, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
@@ -17,12 +18,12 @@ export const dynamic = 'force-dynamic'
 
 export default function CheckoutPage() {
     const params = useParams()
-    const router = useRouter()
-    const { storeId } = params
+    const storeId = params.storeId as string
 
     const { items, total, clearCart } = useCart()
     const [loading, setLoading] = useState(false)
-    const [store, setStore] = useState<any>(null)
+    const [store, setStore] = useState<{ id: string; name: string; business_name?: string } | null>(null)
+    const [error, setError] = useState<string | null>(null)
 
     // Form state
     const [formData, setFormData] = useState({
@@ -35,8 +36,8 @@ export default function CheckoutPage() {
     useEffect(() => {
         const loadStore = async () => {
             try {
-                let storeQuery = supabase.from('stores').select('*')
-                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storeId as string)
+                let storeQuery = supabase.from('stores').select('id, name, business_name')
+                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(storeId)
 
                 if (isUuid) {
                     storeQuery = storeQuery.eq('id', storeId)
@@ -60,43 +61,73 @@ export default function CheckoutPage() {
             ...formData,
             [e.target.name]: e.target.value
         })
+        setError(null)
     }
 
     const handlePayment = async (e: React.FormEvent) => {
         e.preventDefault()
+        setError(null)
 
         if (items.length === 0) {
-            toast.error("Tu carrito está vacío")
+            toast.error("Tu carrito esta vacio")
+            return
+        }
+
+        if (!store?.id) {
+            toast.error("Error: Tienda no encontrada")
             return
         }
 
         setLoading(true)
 
         try {
-            // Simulación de proceso de pago con MercadoPago
-            // Aquí iría la llamada real a tu API para crear la preferencia de pago
-
-            await new Promise(resolve => setTimeout(resolve, 2000)) // Simular delay de red
-
-            // En una implementación real, aquí redirigiríamos a MercadoPago
-            // window.location.href = response.init_point
-
-            // Por ahora, simulamos éxito y creamos la orden (si tuviéramos la tabla orders)
-            console.log("Procesando orden:", {
-                store_id: store?.id,
-                customer: formData,
-                items: items,
-                total: total()
+            // Llamar al API de checkout
+            const response = await fetch('/api/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    store_id: store.id,
+                    customer: {
+                        name: formData.name,
+                        email: formData.email,
+                        phone: formData.phone || undefined,
+                        address: formData.address || undefined,
+                    },
+                    items: items.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        quantity: item.quantity,
+                    })),
+                }),
             })
 
-            toast.success("¡Pedido realizado con éxito!")
-            clearCart()
+            const data = await response.json()
 
-            // Redirigir a una página de éxito o volver a la tienda
-            router.push(`/store/${storeId}?success=true`)
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al procesar el pago')
+            }
+
+            if (data.success && data.payment_url) {
+                // Guardar orderId en sessionStorage para la pagina de exito
+                sessionStorage.setItem('pendingOrderId', data.order_id)
+
+                // Limpiar carrito antes de redirigir
+                clearCart()
+
+                toast.success("Redirigiendo a MercadoPago...")
+
+                // Redirigir a MercadoPago
+                window.location.href = data.payment_url
+            } else {
+                throw new Error('No se recibio URL de pago')
+            }
 
         } catch (error) {
             console.error("Error en pago:", error)
+            setError(error instanceof Error ? error.message : 'Error al procesar el pago')
             toast.error("Error al procesar el pago")
         } finally {
             setLoading(false)
@@ -118,33 +149,41 @@ export default function CheckoutPage() {
                     Volver a la tienda
                 </Link>
 
+                {error && (
+                    <Alert variant="destructive" className="mb-6">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Columna Izquierda: Formulario */}
                     <div className="space-y-6">
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900">Finalizar Compra</h1>
-                            <p className="text-gray-500">Completa tus datos para el envío</p>
+                            <p className="text-gray-500">Completa tus datos para el envio</p>
                         </div>
 
                         <Card>
                             <CardHeader>
-                                <CardTitle>Información de Contacto</CardTitle>
+                                <CardTitle>Informacion de Contacto</CardTitle>
                             </CardHeader>
                             <CardContent>
                                 <form id="checkout-form" onSubmit={handlePayment} className="space-y-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="name">Nombre Completo</Label>
+                                        <Label htmlFor="name">Nombre Completo *</Label>
                                         <Input
                                             id="name"
                                             name="name"
                                             required
-                                            placeholder="Juan Pérez"
+                                            placeholder="Juan Perez"
                                             value={formData.name}
                                             onChange={handleInputChange}
+                                            disabled={loading}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="email">Email</Label>
+                                        <Label htmlFor="email">Email *</Label>
                                         <Input
                                             id="email"
                                             name="email"
@@ -153,29 +192,30 @@ export default function CheckoutPage() {
                                             placeholder="juan@ejemplo.com"
                                             value={formData.email}
                                             onChange={handleInputChange}
+                                            disabled={loading}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="phone">Teléfono / WhatsApp</Label>
+                                        <Label htmlFor="phone">Telefono / WhatsApp</Label>
                                         <Input
                                             id="phone"
                                             name="phone"
                                             type="tel"
-                                            required
                                             placeholder="+52 55 1234 5678"
                                             value={formData.phone}
                                             onChange={handleInputChange}
+                                            disabled={loading}
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="address">Dirección de Entrega</Label>
+                                        <Label htmlFor="address">Direccion de Entrega</Label>
                                         <Input
                                             id="address"
                                             name="address"
-                                            required
                                             placeholder="Calle Principal #123, Col. Centro"
                                             value={formData.address}
                                             onChange={handleInputChange}
+                                            disabled={loading}
                                         />
                                     </div>
                                 </form>
@@ -187,7 +227,7 @@ export default function CheckoutPage() {
                             <div>
                                 <h4 className="font-medium text-blue-900">Pago Seguro</h4>
                                 <p className="text-sm text-blue-700">
-                                    Tus datos están protegidos. Procesamos pagos de forma segura a través de MercadoPago.
+                                    Tus datos estan protegidos. Procesamos pagos de forma segura a traves de MercadoPago.
                                 </p>
                             </div>
                         </div>
@@ -199,12 +239,12 @@ export default function CheckoutPage() {
                             <CardHeader>
                                 <CardTitle>Resumen del Pedido</CardTitle>
                                 <CardDescription>
-                                    {store?.business_name || "Tienda"}
+                                    {store?.business_name || store?.name || "Tienda"}
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {items.length === 0 ? (
-                                    <p className="text-center text-gray-500 py-4">Tu carrito está vacío</p>
+                                    <p className="text-center text-gray-500 py-4">Tu carrito esta vacio</p>
                                 ) : (
                                     <div className="space-y-3">
                                         {items.map((item) => (
@@ -228,7 +268,7 @@ export default function CheckoutPage() {
                                         <span>${total().toLocaleString()}</span>
                                     </div>
                                     <div className="flex justify-between text-sm">
-                                        <span className="text-gray-600">Envío</span>
+                                        <span className="text-gray-600">Envio</span>
                                         <span className="text-green-600 font-medium">Gratis</span>
                                     </div>
                                 </div>
@@ -237,7 +277,7 @@ export default function CheckoutPage() {
 
                                 <div className="flex justify-between text-lg font-bold">
                                     <span>Total</span>
-                                    <span>${total().toLocaleString()}</span>
+                                    <span>${total().toLocaleString()} MXN</span>
                                 </div>
                             </CardContent>
                             <CardFooter>

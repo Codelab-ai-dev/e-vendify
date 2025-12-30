@@ -1,10 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// Variables con fallback para build time
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+
+// Verificar si estamos en build time (sin variables reales)
+const isBuildTime = !process.env.NEXT_PUBLIC_SUPABASE_URL || supabaseUrl === 'https://placeholder.supabase.co'
 
 // Configuración mejorada del cliente con manejo de errores
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -16,6 +20,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
   }
 })
+
+// Helper para verificar si el cliente está listo
+export const isSupabaseReady = () => !isBuildTime
 
 // Función helper para manejar errores de red
 export const handleSupabaseError = (error: any) => {

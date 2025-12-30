@@ -14,10 +14,9 @@ const config: Config = {
 	theme: {
 		extend: {
 			fontFamily: {
-				poppins: ['var(--font-poppins)', 'sans-serif'],
-				inter: ['var(--font-inter)', 'sans-serif'],
-				sans: ['var(--font-inter)', 'sans-serif'], // Inter como fuente por defecto
-				mono: ['var(--font-mono)', 'monospace'],
+				display: ['var(--font-syne)', 'Syne', 'sans-serif'],
+				sans: ['var(--font-dm-sans)', 'DM Sans', 'sans-serif'],
+				mono: ['var(--font-jetbrains)', 'JetBrains Mono', 'monospace'],
 			},
 			colors: {
 				background: 'hsl(var(--background))',

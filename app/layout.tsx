@@ -1,21 +1,27 @@
 import type { Metadata } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
-import { Poppins, Inter } from 'next/font/google'
+import { Syne, DM_Sans, JetBrains_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from "@/components/theme-provider"
 import './globals.css'
 
-const poppins = Poppins({
+const syne = Syne({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-poppins',
+  variable: '--font-syne',
 })
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-inter',
+  variable: '--font-dm-sans',
+})
+
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-jetbrains',
 })
 
 export const metadata: Metadata = {
@@ -23,26 +29,9 @@ export const metadata: Metadata = {
   description: 'Plataforma digital para emprendedores y pequeños negocios',
   generator: 'e-vendify',
   icons: {
-    icon: [
-      {
-        url: '/e-vendify-icon-tight.webp',
-        sizes: '32x32',
-        type: 'image/webp',
-      },
-      {
-        url: '/vendify_logo.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-    ],
-    shortcut: '/e-vendify-icon-tight.webp',
-    apple: [
-      {
-        url: '/e-vendify-icon-tight.webp',
-        sizes: '180x180',
-        type: 'image/webp',
-      },
-    ],
+    icon: '/e-favicon.png',
+    shortcut: '/e-favicon.png',
+    apple: '/e-favicon.png',
   },
 }
 
@@ -52,19 +41,18 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <style>{`
 html {
-  font-family: ${inter.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-  --font-poppins: ${poppins.style.fontFamily};
-  --font-inter: ${inter.style.fontFamily};
+  font-family: ${dmSans.style.fontFamily};
+  --font-sans: ${dmSans.style.fontFamily};
+  --font-display: ${syne.style.fontFamily};
+  --font-mono: ${jetbrains.style.fontFamily};
 }
         `}</style>
       </head>
-      <body className={`${GeistSans.variable} ${GeistMono.variable} ${poppins.variable} ${inter.variable}`}>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} ${syne.variable} ${dmSans.variable} ${jetbrains.variable} antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

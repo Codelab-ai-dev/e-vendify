@@ -1,33 +1,29 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Eye, EyeOff, Store, Loader2, CheckCircle, Upload, X, User, MapPin, ArrowRight, ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import Image from "next/image"
+import { motion, AnimatePresence } from "framer-motion"
+import { Eye, EyeOff, Loader2, CheckCircle, Upload, X, ArrowRight, ArrowLeft } from "lucide-react"
 import { supabase, signUpWithRetry } from "@/lib/supabase"
 import { generateUniqueSlug } from "@/lib/slugs"
 import { toast } from "sonner"
+import { useTheme } from "next-themes"
 
 const mexicanCities = [
-  "Ciudad de México",
+  "Ciudad de Mexico",
   "Guadalajara",
   "Monterrey",
   "Puebla",
   "Tijuana",
-  "León",
-  "Juárez",
-  "Torreón",
-  "Querétaro",
-  "San Luis Potosí",
-  "Mérida",
+  "Leon",
+  "Juarez",
+  "Torreon",
+  "Queretaro",
+  "San Luis Potosi",
+  "Merida",
   "Mexicali",
   "Aguascalientes",
   "Cuernavaca",
@@ -38,46 +34,41 @@ const mexicanCities = [
   "Reynosa",
   "Toluca",
   "Chihuahua",
-  "Culiacán",
+  "Culiacan",
   "Hermosillo",
-  "Cancún",
+  "Cancun",
   "Veracruz",
 ]
 
 const businessCategories = [
-  "Alimentación y Bebidas",
+  "Alimentacion y Bebidas",
   "Moda y Accesorios",
-  "Tecnología y Electrónicos",
+  "Tecnologia y Electronicos",
   "Salud y Belleza",
-  "Hogar y Decoración",
-  "Deportes y Recreación",
+  "Hogar y Decoracion",
+  "Deportes y Recreacion",
   "Servicios Profesionales",
-  "Educación",
+  "Educacion",
   "Otros",
 ]
 
 export default function RegisterPage() {
+  const { theme } = useTheme()
   const [currentStep, setCurrentStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [focusedField, setFocusedField] = useState<string | null>(null)
   const [formData, setFormData] = useState({
-    // Paso 1: Información básica
     businessName: "",
     email: "",
     password: "",
-    
-    // Paso 2: Información del negocio
     businessDescription: "",
     businessCategory: "",
     logo: "",
-    
-    // Paso 3: Información personal
     ownerName: "",
     ownerPhone: "",
-    
-    // Paso 4: Ubicación
     address: "",
     city: "",
   })
@@ -105,7 +96,7 @@ export default function RegisterPage() {
           return false
         }
         if (!formData.email.trim()) {
-          toast.error("El correo electrónico es requerido")
+          toast.error("El correo electronico es requerido")
           return false
         }
         if (formData.password.length < 8) {
@@ -115,7 +106,7 @@ export default function RegisterPage() {
         return true
       case 2:
         if (!formData.businessCategory) {
-          toast.error("La categoría del negocio es requerida")
+          toast.error("La categoria del negocio es requerida")
           return false
         }
         return true
@@ -144,15 +135,14 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateStep(currentStep)) {
       return
     }
-    
+
     setIsLoading(true)
 
     try {
-      // Registrar usuario en Supabase con reintentos
       const { data, error } = await signUpWithRetry(
         formData.email,
         formData.password,
@@ -166,16 +156,13 @@ export default function RegisterPage() {
       )
 
       if (error) {
-        console.error('Error de registro:', error)
         toast.error(`Error al crear la cuenta: ${error.message}`)
         return
       }
 
       if (data?.user) {
-        // Generar slug único para la tienda
         const storeSlug = await generateUniqueSlug(formData.businessName, supabase)
-        
-        // Crear tienda en la tabla stores unificada
+
         const newStore = {
           user_id: data.user!.id,
           name: formData.businessName,
@@ -189,43 +176,31 @@ export default function RegisterPage() {
           logo_url: formData.logo,
           category: formData.businessCategory,
           slug: storeSlug,
-          
-          // Estados y configuración por defecto
           registered_date: new Date().toISOString(),
           status: 'active' as const,
           is_active: true,
-          
-          // Plan básico por defecto
           plan: 'basic' as const,
-          
-          // Estadísticas iniciales
           products_count: 0,
           monthly_revenue: 0,
           last_login: new Date().toISOString(),
-          
-          // Timestamps
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
 
-        // Crear la tienda en la tabla stores
         const { error: storeError } = await supabase
           .from('stores')
           .insert(newStore)
 
         if (storeError) {
-          console.error('Error al crear la tienda:', storeError.message)
           toast.error(`Error al crear la tienda: ${storeError.message}`)
           return
         }
 
-        // Guardar datos para confirmación
         localStorage.setItem('pendingConfirmationEmail', formData.email)
         localStorage.setItem('pendingBusinessName', formData.businessName)
-        
+
         setIsSuccess(true)
-        
-        // Verificar si el email necesita confirmación
+
         if (data.user && data.user.email_confirmed_at) {
           toast.success("¡Tienda creada exitosamente!")
           setTimeout(() => {
@@ -246,17 +221,10 @@ export default function RegisterPage() {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
-    })
-  }
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData({
-      ...formData,
-      [name]: value,
     })
   }
 
@@ -278,329 +246,482 @@ export default function RegisterPage() {
     setFormData({ ...formData, logo: "" })
   }
 
-  const getStepTitle = (step: number) => {
-    switch (step) {
-      case 1: return "Información Básica"
-      case 2: return "Detalles del Negocio"
-      case 3: return "Información Personal"
-      case 4: return "Ubicación"
-      default: return ""
-    }
-  }
-
-  const getStepDescription = (step: number) => {
-    switch (step) {
-      case 1: return "Comencemos con lo básico de tu tienda"
-      case 2: return "Cuéntanos más sobre tu negocio"
-      case 3: return "Información de contacto del propietario"
-      case 4: return "¿Dónde se encuentra tu negocio?"
-      default: return ""
-    }
-  }
+  const steps = [
+    { num: 1, title: "Cuenta", subtitle: "Credenciales de acceso" },
+    { num: 2, title: "Negocio", subtitle: "Detalles de tu tienda" },
+    { num: 3, title: "Contacto", subtitle: "Informacion personal" },
+    { num: 4, title: "Ubicacion", subtitle: "Donde te encuentras" },
+  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="text-center">
-        <div className="flex items-center justify-center">
-              <img
-                src="/e-vendify-icon-tight.webp"
+    <div className="min-h-screen bg-background text-foreground flex">
+      {/* Left side - Progress */}
+      <div className="hidden lg:flex lg:w-2/5 bg-foreground text-background p-12 flex-col justify-between relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full blur-2xl" />
+
+        <div className="relative z-10">
+          <Link href="/" className="inline-flex items-center gap-2 text-background/60 hover:text-background transition-colors mb-12 group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm">Volver al inicio</span>
+          </Link>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <h1 className="heading-xl text-4xl xl:text-5xl mb-6">
+              Crea tu
+              <br />
+              <span className="text-primary">tienda digital.</span>
+            </h1>
+            <p className="text-background/60 text-lg max-w-md mb-12">
+              En solo 4 pasos tendras tu negocio listo para vender en linea.
+            </p>
+          </motion.div>
+
+          {/* Steps indicator */}
+          <div className="space-y-6">
+            {steps.map((step, i) => (
+              <motion.div
+                key={step.num}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.4, delay: 0.2 + i * 0.1 }}
+                className={`flex items-center gap-4 ${currentStep >= step.num ? 'opacity-100' : 'opacity-40'}`}
+              >
+                <div className={`w-10 h-10 flex items-center justify-center font-mono text-sm font-bold transition-colors ${
+                  currentStep > step.num
+                    ? 'bg-primary text-primary-foreground'
+                    : currentStep === step.num
+                      ? 'bg-background text-foreground'
+                      : 'bg-background/20 text-background'
+                }`}>
+                  {currentStep > step.num ? <CheckCircle className="w-5 h-5" /> : step.num.toString().padStart(2, '0')}
+                </div>
+                <div>
+                  <p className="font-display font-bold">{step.title}</p>
+                  <p className="text-sm text-background/60">{step.subtitle}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="relative z-10"
+        >
+          <p className="text-sm text-background/40">
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/login" className="text-background hover:text-primary transition-colors font-medium">
+              Inicia sesion
+            </Link>
+          </p>
+        </motion.div>
+      </div>
+
+      {/* Right side - Form */}
+      <div className="w-full lg:w-3/5 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="w-full max-w-lg"
+        >
+          {/* Mobile header */}
+          <div className="lg:hidden mb-8">
+            <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 group">
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm">Volver</span>
+            </Link>
+            <Link href="/" className="block mb-4">
+              <Image
+                src={theme === 'dark' ? '/e-logo-oscuro.png' : '/logo-ev-claro.png'}
                 alt="e-vendify"
-                style={{ height: "100px", width: "auto", padding: "5px", marginBottom: "20px" }}
+                width={160}
+                height={45}
+                className={theme === 'dark' ? 'h-10 w-auto' : 'h-8 w-auto'}
               />
-            </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">
-            {getStepTitle(currentStep)}
-          </CardTitle>
-          <CardDescription>
-            {getStepDescription(currentStep)}
-          </CardDescription>
-          
-          {/* Progress indicator */}
-          <div className="flex justify-center mt-6">
-            <div className="flex space-x-2">
+            </Link>
+            {/* Mobile progress */}
+            <div className="flex gap-2 mb-2">
               {[1, 2, 3, 4].map((step) => (
                 <div
                   key={step}
-                  className={`w-3 h-3 rounded-full transition-colors ${
-                    step <= currentStep ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
+                  className={`h-1 flex-1 transition-colors ${step <= currentStep ? 'bg-primary' : 'bg-border'}`}
                 />
               ))}
             </div>
+            <p className="text-sm text-muted-foreground">Paso {currentStep} de {totalSteps}</p>
           </div>
-          <p className="text-sm text-gray-500 mt-2">
-            Paso {currentStep} de {totalSteps}
-          </p>
-        </CardHeader>
-        
-        <CardContent>
-          <form onSubmit={currentStep === totalSteps ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }} className="space-y-6">
-            
-            {/* Step 1: Basic Information */}
-            {currentStep === 1 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="businessName">Nombre de tu negocio *</Label>
-                  <Input
-                    id="businessName"
-                    name="businessName"
-                    type="text"
-                    placeholder="Ej: Panadería San José"
-                    value={formData.businessName}
-                    onChange={handleChange}
-                    disabled={isLoading || isSuccess}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Correo electrónico *</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="tu@negocio.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                    disabled={isLoading || isSuccess}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Contraseña *</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Mínimo 8 caracteres"
-                      value={formData.password}
-                      onChange={handleChange}
-                      disabled={isLoading || isSuccess}
-                      required
-                      minLength={8}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* Step 2: Business Details */}
-            {currentStep === 2 && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="businessCategory">Categoría del negocio *</Label>
-                  <Select onValueChange={(value) => handleSelectChange("businessCategory", value)} value={formData.businessCategory}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {businessCategories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="businessDescription">Descripción del negocio</Label>
-                  <Textarea
-                    id="businessDescription"
-                    name="businessDescription"
-                    placeholder="Describe brevemente tu negocio..."
-                    value={formData.businessDescription}
-                    onChange={handleChange}
-                    rows={3}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Logo del negocio (opcional)</Label>
-                  <div className="flex items-center space-x-4">
-                    {logoPreview ? (
-                      <div className="relative">
-                        <img src={logoPreview} alt="Logo preview" className="w-20 h-20 object-cover rounded-lg border" />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
-                          onClick={removeLogo}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
-                        <Upload className="h-6 w-6 text-gray-400" />
-                      </div>
-                    )}
-                    <div>
+          <div className="mb-8">
+            <span className="label-mono mb-4 block">{steps[currentStep - 1].subtitle}</span>
+            <h2 className="heading-lg text-3xl sm:text-4xl">
+              {steps[currentStep - 1].title}
+            </h2>
+          </div>
+
+          <form onSubmit={currentStep === totalSteps ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}>
+            <AnimatePresence mode="wait">
+              {/* Step 1: Account */}
+              {currentStep === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-2">
+                    <label htmlFor="businessName" className="text-sm font-medium block">
+                      Nombre de tu negocio *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'businessName' ? 'border-primary' : 'border-border'}`}>
                       <input
-                        type="file"
-                        id="logo"
-                        accept="image/*"
-                        onChange={handleLogoUpload}
-                        className="hidden"
+                        id="businessName"
+                        name="businessName"
+                        type="text"
+                        placeholder="Ej: Panaderia San Jose"
+                        value={formData.businessName}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('businessName')}
+                        onBlur={() => setFocusedField(null)}
+                        disabled={isLoading || isSuccess}
+                        required
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none"
                       />
-                      <Label htmlFor="logo" className="cursor-pointer">
-                        <Button type="button" variant="outline" size="sm" asChild>
-                          <span>Subir logo</span>
-                        </Button>
-                      </Label>
-                      <p className="text-xs text-gray-500 mt-1">JPG, PNG hasta 5MB</p>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
 
-            {/* Step 3: Personal Information */}
-            {currentStep === 3 && (
-              <div className="space-y-4">
-                <div className="flex items-center mb-4">
-                  <User className="h-5 w-5 mr-2 text-green-600" />
-                  <span className="text-sm font-medium text-gray-700">Información del propietario</span>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ownerName">Tu nombre completo *</Label>
-                  <Input
-                    id="ownerName"
-                    name="ownerName"
-                    type="text"
-                    placeholder="Ej: Juan Pérez"
-                    value={formData.ownerName}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ownerPhone">Teléfono (opcional)</Label>
-                  <Input
-                    id="ownerPhone"
-                    name="ownerPhone"
-                    type="tel"
-                    placeholder="Ej: +57 300 123 4567"
-                    value={formData.ownerPhone}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-            )}
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-medium block">
+                      Correo electronico *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'email' ? 'border-primary' : 'border-border'}`}>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        placeholder="tu@negocio.com"
+                        value={formData.email}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('email')}
+                        onBlur={() => setFocusedField(null)}
+                        disabled={isLoading || isSuccess}
+                        required
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
 
-            {/* Step 4: Location */}
-            {currentStep === 4 && (
-              <div className="space-y-4">
-                <div className="flex items-center mb-4">
-                  <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-700">Ubicación del negocio</span>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">Ciudad *</Label>
-                  <Select onValueChange={(value) => handleSelectChange("city", value)} value={formData.city}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona tu ciudad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mexicanCities.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Dirección (opcional)</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    type="text"
-                    placeholder="Ej: Calle 123 #45-67"
-                    value={formData.address}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="bg-blue-50 p-4 rounded-lg mt-4">
-                  <h4 className="font-medium text-blue-900 mb-2">¡Ya casi terminamos!</h4>
-                  <p className="text-sm text-blue-800">
-                    Al crear tu tienda, tendrás acceso inmediato a tu panel de control donde podrás agregar productos, gestionar pedidos y personalizar tu tienda.
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {/* Navigation buttons */}
-            <div className="flex justify-between pt-6">
-              {currentStep > 1 && (
-                <Button
+                  <div className="space-y-2">
+                    <label htmlFor="password" className="text-sm font-medium block">
+                      Contraseña *
+                    </label>
+                    <div className={`relative border-2 transition-colors ${focusedField === 'password' ? 'border-primary' : 'border-border'}`}>
+                      <input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Minimo 8 caracteres"
+                        value={formData.password}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('password')}
+                        onBlur={() => setFocusedField(null)}
+                        disabled={isLoading || isSuccess}
+                        required
+                        minLength={8}
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none pr-12"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 2: Business */}
+              {currentStep === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-2">
+                    <label htmlFor="businessCategory" className="text-sm font-medium block">
+                      Categoria del negocio *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'businessCategory' ? 'border-primary' : 'border-border'}`}>
+                      <select
+                        id="businessCategory"
+                        name="businessCategory"
+                        value={formData.businessCategory}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('businessCategory')}
+                        onBlur={() => setFocusedField(null)}
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none cursor-pointer appearance-none"
+                        required
+                      >
+                        <option value="">Selecciona una categoria</option>
+                        {businessCategories.map((category) => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="businessDescription" className="text-sm font-medium block">
+                      Descripcion del negocio
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'businessDescription' ? 'border-primary' : 'border-border'}`}>
+                      <textarea
+                        id="businessDescription"
+                        name="businessDescription"
+                        placeholder="Describe brevemente tu negocio..."
+                        value={formData.businessDescription}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('businessDescription')}
+                        onBlur={() => setFocusedField(null)}
+                        rows={3}
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium block">Logo del negocio</label>
+                    <div className="flex items-center gap-4">
+                      {logoPreview ? (
+                        <div className="relative">
+                          <img src={logoPreview} alt="Logo preview" className="w-20 h-20 object-cover border-2 border-border" />
+                          <button
+                            type="button"
+                            onClick={removeLogo}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-foreground text-background flex items-center justify-center hover:bg-primary transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 border-2 border-dashed border-border flex items-center justify-center">
+                          <Upload className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div>
+                        <input
+                          type="file"
+                          id="logo"
+                          accept="image/*"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                        />
+                        <label htmlFor="logo" className="btn-brutal-outline text-sm px-4 py-2 cursor-pointer inline-block">
+                          Subir logo
+                        </label>
+                        <p className="text-xs text-muted-foreground mt-2">JPG, PNG hasta 5MB</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 3: Contact */}
+              {currentStep === 3 && (
+                <motion.div
+                  key="step3"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-2">
+                    <label htmlFor="ownerName" className="text-sm font-medium block">
+                      Tu nombre completo *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'ownerName' ? 'border-primary' : 'border-border'}`}>
+                      <input
+                        id="ownerName"
+                        name="ownerName"
+                        type="text"
+                        placeholder="Ej: Juan Perez"
+                        value={formData.ownerName}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('ownerName')}
+                        onBlur={() => setFocusedField(null)}
+                        required
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="ownerPhone" className="text-sm font-medium block">
+                      Telefono (opcional)
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'ownerPhone' ? 'border-primary' : 'border-border'}`}>
+                      <input
+                        id="ownerPhone"
+                        name="ownerPhone"
+                        type="tel"
+                        placeholder="Ej: +52 55 1234 5678"
+                        value={formData.ownerPhone}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('ownerPhone')}
+                        onBlur={() => setFocusedField(null)}
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 4: Location */}
+              {currentStep === 4 && (
+                <motion.div
+                  key="step4"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-6"
+                >
+                  <div className="space-y-2">
+                    <label htmlFor="city" className="text-sm font-medium block">
+                      Ciudad *
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'city' ? 'border-primary' : 'border-border'}`}>
+                      <select
+                        id="city"
+                        name="city"
+                        value={formData.city}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('city')}
+                        onBlur={() => setFocusedField(null)}
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none cursor-pointer appearance-none"
+                        required
+                      >
+                        <option value="">Selecciona tu ciudad</option>
+                        {mexicanCities.map((city) => (
+                          <option key={city} value={city}>{city}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="address" className="text-sm font-medium block">
+                      Direccion (opcional)
+                    </label>
+                    <div className={`border-2 transition-colors ${focusedField === 'address' ? 'border-primary' : 'border-border'}`}>
+                      <input
+                        id="address"
+                        name="address"
+                        type="text"
+                        placeholder="Ej: Av. Reforma 123, Col. Centro"
+                        value={formData.address}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('address')}
+                        onBlur={() => setFocusedField(null)}
+                        className="w-full px-4 py-4 bg-transparent focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-muted/50 border-2 border-border">
+                    <p className="font-display font-bold mb-2">¡Ya casi terminamos!</p>
+                    <p className="text-sm text-muted-foreground">
+                      Al crear tu tienda, tendras acceso a tu panel de control donde podras agregar productos, gestionar pedidos y personalizar tu tienda.
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-10 pt-6 border-t border-border">
+              {currentStep > 1 ? (
+                <button
                   type="button"
-                  variant="outline"
                   onClick={prevStep}
                   disabled={isLoading || isSuccess}
+                  className="btn-brutal-outline px-6 py-3 inline-flex items-center gap-2"
                 >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  <ArrowLeft className="h-4 w-4" />
                   Anterior
-                </Button>
+                </button>
+              ) : (
+                <div />
               )}
-              
-              <div className="ml-auto">
-                {currentStep < totalSteps ? (
-                  <Button 
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700"
-                    disabled={isLoading || isSuccess}
-                  >
-                    Siguiente
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button 
-                    type="submit" 
-                    className="bg-green-600 hover:bg-green-700" 
-                    disabled={isLoading || isSuccess}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Creando tienda...
-                      </>
-                    ) : isSuccess ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        ¡Tienda creada! Redirigiendo...
-                      </>
-                    ) : (
-                      <>
-                        <Store className="h-4 w-4 mr-2" />
-                        Crear mi tienda digital
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+
+              {currentStep < totalSteps ? (
+                <button
+                  type="submit"
+                  disabled={isLoading || isSuccess}
+                  className="btn-brutal px-8 py-3 inline-flex items-center gap-2"
+                >
+                  Siguiente
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isLoading || isSuccess}
+                  className="btn-brutal bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 inline-flex items-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creando tienda...
+                    </>
+                  ) : isSuccess ? (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      ¡Listo! Redirigiendo...
+                    </>
+                  ) : (
+                    <>
+                      Crear mi tienda
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </form>
-          
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              ¿Ya tienes cuenta?{" "}
-              <Link href="/login" className="text-blue-600 hover:text-blue-800 font-medium">
-                Inicia sesión
-              </Link>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+
+          {/* Mobile login link */}
+          <p className="lg:hidden mt-8 text-center text-muted-foreground">
+            ¿Ya tienes cuenta?{" "}
+            <Link href="/login" className="text-foreground font-medium hover:text-primary transition-colors">
+              Inicia sesion
+            </Link>
+          </p>
+
+          {/* Terms */}
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            Al registrarte, aceptas nuestros{" "}
+            <Link href="#" className="hover:text-foreground transition-colors">Terminos</Link>
+            {" "}y{" "}
+            <Link href="#" className="hover:text-foreground transition-colors">Privacidad</Link>
+          </p>
+        </motion.div>
+      </div>
     </div>
   )
 }
