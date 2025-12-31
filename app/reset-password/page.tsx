@@ -28,34 +28,47 @@ export default function ResetPasswordPage() {
   // Verificar que el usuario llegó desde el email de recuperación
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
+      // Primero verificar si hay un hash con tokens en la URL (Supabase los pone ahí)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+      const hashType = hashParams.get('type')
 
-      // Si hay sesión, el usuario llegó correctamente desde el email
-      if (session) {
-        setIsValidSession(true)
-      } else {
-        // Verificar si hay un hash con tokens en la URL (Supabase los pone ahí)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1))
-        const accessToken = hashParams.get('access_token')
-        const type = hashParams.get('type')
+      if (accessToken && hashType === 'recovery') {
+        // Establecer la sesión con el token de recuperación
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: hashParams.get('refresh_token') || '',
+        })
 
-        if (accessToken && type === 'recovery') {
-          // Establecer la sesión con el token de recuperación
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: hashParams.get('refresh_token') || '',
-          })
-
-          if (!error) {
-            setIsValidSession(true)
-            // Limpiar la URL
-            window.history.replaceState({}, document.title, window.location.pathname)
-          } else {
-            setIsValidSession(false)
-          }
+        if (!error) {
+          setIsValidSession(true)
+          // Limpiar la URL
+          window.history.replaceState({}, document.title, window.location.pathname)
         } else {
           setIsValidSession(false)
         }
+        return
+      }
+
+      // Si no hay hash, verificar si hay una sesión existente
+      // (puede venir del callback de auth que ya estableció la sesión)
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (session) {
+        // Verificar si la sesión es reciente (menos de 5 minutos)
+        // Esto ayuda a determinar si viene de un flujo de recuperación
+        const sessionAge = Date.now() - new Date(session.user.last_sign_in_at || 0).getTime()
+        const isRecentSession = sessionAge < 5 * 60 * 1000 // 5 minutos
+
+        if (isRecentSession) {
+          setIsValidSession(true)
+        } else {
+          // Sesión antigua, probablemente no es de recuperación
+          // Pero permitimos igual si el usuario llegó aquí explícitamente
+          setIsValidSession(true)
+        }
+      } else {
+        setIsValidSession(false)
       }
     }
 

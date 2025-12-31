@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import { motion } from "framer-motion"
-import { Plus, Edit, Trash2, Eye, LogOut, Package, ShoppingBag, DollarSign, Menu, X, Settings, ClipboardList, BarChart3, Star } from "lucide-react"
+import { Plus, Edit, Trash2, Eye, LogOut, Package, ShoppingBag, DollarSign, Menu, X, Settings, ClipboardList, BarChart3, Star, Boxes } from "lucide-react"
 import { supabase, isAdmin } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
@@ -62,6 +62,43 @@ const ReviewsManager = dynamic(() => import("@/components/dashboard/ReviewsManag
   ssr: false
 })
 
+const InventoryManager = dynamic(() => import("@/components/dashboard/InventoryManager").then(mod => ({ default: mod.InventoryManager })), {
+  loading: () => (
+    <div className="space-y-4 animate-pulse">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="h-24 bg-muted border-2 border-border" />
+        ))}
+      </div>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="h-20 bg-muted border-2 border-border" />
+      ))}
+    </div>
+  ),
+  ssr: false
+})
+
+const LowStockAlert = dynamic(() => import("@/components/dashboard/LowStockAlert").then(mod => ({ default: mod.LowStockAlert })), {
+  loading: () => null,
+  ssr: false
+})
+
+const TwoFactorSetup = dynamic(() => import("@/components/auth/TwoFactorSetup").then(mod => ({ default: mod.TwoFactorSetup })), {
+  loading: () => (
+    <div className="p-6 border-2 border-border animate-pulse">
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-12 h-12 bg-muted" />
+        <div className="space-y-2">
+          <div className="h-5 w-48 bg-muted" />
+          <div className="h-4 w-64 bg-muted" />
+        </div>
+      </div>
+      <div className="h-32 bg-muted" />
+    </div>
+  ),
+  ssr: false
+})
+
 interface BusinessProfile {
   id: string
   user_id: string | null
@@ -111,7 +148,7 @@ export default function DashboardPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'productos' | 'analytics' | 'reviews' | 'configuracion'>('productos')
+  const [activeTab, setActiveTab] = useState<'productos' | 'inventario' | 'analytics' | 'reviews' | 'configuracion'>('productos')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const loadUserData = async () => {
@@ -430,6 +467,12 @@ export default function DashboardPage() {
           <OnboardingChecklist profile={businessProfile} productsCount={products.length} />
         </div>
 
+        {/* Low Stock Alert */}
+        <LowStockAlert
+          storeId={businessProfile.id}
+          onNavigateToInventory={() => setActiveTab('inventario')}
+        />
+
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <motion.div
@@ -505,6 +548,25 @@ export default function DashboardPage() {
               Pedidos
             </span>
           </Link>
+          <button
+            onClick={() => setActiveTab('inventario')}
+            className={`px-6 py-4 font-medium text-sm transition-colors relative ${
+              activeTab === 'inventario'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Boxes className="w-4 h-4" />
+              Inventario
+            </span>
+            {activeTab === 'inventario' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+              />
+            )}
+          </button>
           <button
             onClick={() => setActiveTab('analytics')}
             className={`px-6 py-4 font-medium text-sm transition-colors relative ${
@@ -695,6 +757,17 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
+        {/* Inventory Tab */}
+        {activeTab === 'inventario' && businessProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <InventoryManager storeId={businessProfile.id} />
+          </motion.div>
+        )}
+
         {/* Analytics Tab */}
         {activeTab === 'analytics' && businessProfile && (
           <motion.div
@@ -723,13 +796,28 @@ export default function DashboardPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
+            className="space-y-8"
           >
-            <div className="mb-6">
-              <h2 className="font-display font-bold text-2xl">Configuracion</h2>
-              <p className="text-muted-foreground text-sm">Edita la informacion de tu tienda</p>
+            {/* Store Settings */}
+            <div>
+              <div className="mb-6">
+                <h2 className="font-display font-bold text-2xl">Configuracion de tienda</h2>
+                <p className="text-muted-foreground text-sm">Edita la informacion de tu tienda</p>
+              </div>
+              <div className="border-2 border-border p-6 sm:p-8">
+                <StoreSettingsForm businessProfile={businessProfile} onUpdate={loadUserData} />
+              </div>
             </div>
-            <div className="border-2 border-border p-6 sm:p-8">
-              <StoreSettingsForm businessProfile={businessProfile} onUpdate={loadUserData} />
+
+            {/* Security Settings */}
+            <div>
+              <div className="mb-6">
+                <h2 className="font-display font-bold text-2xl">Seguridad</h2>
+                <p className="text-muted-foreground text-sm">Protege tu cuenta con verificacion en dos pasos</p>
+              </div>
+              <div className="border-2 border-border p-6 sm:p-8">
+                <TwoFactorSetup />
+              </div>
             </div>
           </motion.div>
         )}

@@ -54,6 +54,18 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Verificar si el usuario tiene MFA habilitado
+        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+        if (aalData && aalData.nextLevel === 'aal2' && aalData.currentLevel === 'aal1') {
+          // Usuario tiene 2FA habilitado, redirigir a verificación
+          const { isAdmin: userIsAdmin } = await isAdmin(data.user.id)
+          const redirectPath = userIsAdmin ? '/admin/dashboard' : '/dashboard'
+          router.push(`/verify-2fa?redirect=${encodeURIComponent(redirectPath)}`)
+          return
+        }
+
+        // Sin 2FA, continuar normal
         const { isAdmin: userIsAdmin } = await isAdmin(data.user.id)
 
         if (userIsAdmin) {

@@ -3,6 +3,7 @@ import { createOrder, getOrderById } from '@/lib/orders'
 import { createPaymentPreference } from '@/lib/mercadopago'
 import { supabaseAdmin } from '@/lib/supabase-server'
 import { notifyNewOrder } from '@/lib/notifications'
+import { checkStockAvailability } from '@/lib/inventory'
 import { z } from 'zod'
 
 // Schema de validación
@@ -66,10 +67,35 @@ export async function POST(request: NextRequest) {
     }
     console.log('Store found:', store.name)
 
-    // 3. Calcular total
+    // 3. Verificar disponibilidad de stock
+    try {
+      const stockCheck = await checkStockAvailability(
+        items.map(item => ({ product_id: item.id, quantity: item.quantity }))
+      )
+
+      if (!stockCheck.available) {
+        const unavailableNames = stockCheck.unavailableItems
+          .map(item => `${item.product_name} (disponible: ${item.available}, solicitado: ${item.requested})`)
+          .join(', ')
+
+        return NextResponse.json(
+          {
+            error: 'Stock insuficiente',
+            details: `Los siguientes productos no tienen suficiente stock: ${unavailableNames}`,
+            unavailable_items: stockCheck.unavailableItems
+          },
+          { status: 400 }
+        )
+      }
+    } catch (stockError) {
+      console.error('Error checking stock:', stockError)
+      // No bloquear si falla la verificación, solo loggear
+    }
+
+    // 4. Calcular total
     const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
-    // 4. Crear orden en BD
+    // 5. Crear orden en BD
     const { order, error: orderError } = await createOrder({
       store_id,
       customer_name: customer.name,
@@ -97,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
     console.log('Order created:', order.id)
 
-    // 5. Crear preferencia en MercadoPago
+    // 6. Crear preferencia en MercadoPago
     console.log('Creating MercadoPago preference...')
     const preference = await createPaymentPreference({
       orderId: order.id,
@@ -131,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
     console.log('MercadoPago preference created:', preference.preferenceId)
 
-    // 6. Enviar notificaciones (async, no bloquea la respuesta)
+    // 7. Enviar notificaciones (async, no bloquea la respuesta)
     getOrderById(order.id).then(({ order: fullOrder }) => {
       if (fullOrder) {
         notifyNewOrder(fullOrder).catch(err => {
@@ -140,7 +166,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 7. Retornar URL de pago
+    // 8. Retornar URL de pago
     return NextResponse.json({
       success: true,
       order_id: order.id,

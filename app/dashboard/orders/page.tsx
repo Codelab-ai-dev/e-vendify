@@ -23,7 +23,10 @@ import {
   MessageSquare,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  FileText,
+  Download,
+  Loader2
 } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { supabase } from "@/lib/supabase"
@@ -72,6 +75,7 @@ export default function OrdersPage() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
+  const [downloadingInvoice, setDownloadingInvoice] = useState<string | null>(null)
 
   useEffect(() => {
     const loadOrders = async () => {
@@ -143,6 +147,34 @@ export default function OrdersPage() {
       window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank')
     } else {
       window.open(`https://www.google.com/maps/search/${encodeURIComponent(address)}`, '_blank')
+    }
+  }
+
+  const downloadInvoice = async (orderId: string) => {
+    setDownloadingInvoice(orderId)
+    try {
+      const response = await fetch(`/api/invoices/${orderId}`)
+
+      if (!response.ok) {
+        throw new Error('Error al descargar factura')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `factura-${orderId.slice(0, 8).toUpperCase()}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Factura descargada')
+    } catch (error) {
+      console.error('Error downloading invoice:', error)
+      toast.error('Error al descargar la factura')
+    } finally {
+      setDownloadingInvoice(null)
     }
   }
 
@@ -400,6 +432,22 @@ export default function OrdersPage() {
                                 </span>
                               </div>
                             </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-3 pt-4 border-t-2 border-border">
+                            <button
+                              onClick={() => downloadInvoice(order.id)}
+                              disabled={downloadingInvoice === order.id}
+                              className="px-4 py-2 bg-primary text-primary-foreground font-mono text-sm uppercase border-2 border-black hover:bg-primary/90 transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+                            >
+                              {downloadingInvoice === order.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                              Descargar Factura
+                            </button>
                           </div>
 
                           {/* Status Update */}

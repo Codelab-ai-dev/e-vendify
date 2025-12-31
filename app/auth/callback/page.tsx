@@ -24,9 +24,10 @@ function AuthCallbackContent() {
         const hashParams = new URLSearchParams(window.location.hash.substring(1))
         const accessToken = hashParams.get('access_token')
         const refreshToken = hashParams.get('refresh_token')
+        const hashType = hashParams.get('type')
 
         if (accessToken && refreshToken) {
-          console.log('Tokens encontrados en el hash, estableciendo sesión...')
+          console.log('Tokens encontrados en el hash, estableciendo sesión...', { type: hashType })
 
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
@@ -38,6 +39,17 @@ function AuthCallbackContent() {
             setStatus('error')
             setMessage('Error al establecer la sesión: ' + error.message)
             toast.error('Error al establecer la sesión')
+            return
+          }
+
+          // Si es recuperación de contraseña, redirigir a reset-password
+          if (hashType === 'recovery' && data.session) {
+            console.log('Tipo recovery detectado, redirigiendo a reset-password...')
+            setStatus('success')
+            setMessage('Redirigiendo para cambiar tu contraseña...')
+            // Limpiar el hash de la URL antes de redirigir
+            window.history.replaceState({}, document.title, window.location.pathname)
+            router.push('/reset-password')
             return
           }
 
@@ -67,6 +79,15 @@ function AuthCallbackContent() {
           // Si verifyOtp funciona, extraer usuario de la sesión
           if (!verifyResult.error && verifyResult.data.session) {
             user = verifyResult.data.session.user
+
+            // Si es recuperación de contraseña, redirigir a reset-password
+            if (type === 'recovery') {
+              console.log('Tipo recovery detectado en query params, redirigiendo a reset-password...')
+              setStatus('success')
+              setMessage('Redirigiendo para cambiar tu contraseña...')
+              router.push('/reset-password')
+              return
+            }
           } else {
             console.log('Falló verifyOtp con token_hash, intentando método alternativo...')
             authError = verifyResult.error
