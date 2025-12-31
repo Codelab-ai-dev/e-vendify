@@ -21,6 +21,13 @@ export interface Product {
   created_at: string
   updated_at: string
 
+  // Campos de moderación
+  moderation_status?: 'pending' | 'approved' | 'rejected' | 'flagged'
+  rejection_reason?: string | null
+  flagged_words?: string[] | null
+  moderated_at?: string | null
+  moderated_by?: string | null
+
   // Relación con store (opcional para joins)
   store?: {
     id: string
@@ -53,19 +60,20 @@ export const getProductsByStore = async (storeId: string) => {
   return { data: data as Product[] | null, error }
 }
 
-// Función para obtener productos disponibles por tienda
+// Función para obtener productos disponibles y aprobados por tienda (para vista pública)
 export const getAvailableProductsByStore = async (storeId: string) => {
   const { data, error } = await supabase
     .from('products')
     .select('*')
     .eq('store_id', storeId)
     .eq('is_available', true)
+    .eq('moderation_status', 'approved')
     .order('created_at', { ascending: false })
-  
+
   return { data: data as Product[] | null, error }
 }
 
-// Función para obtener productos por categoría
+// Función para obtener productos por categoría (vista pública)
 export const getProductsByCategory = async (category: string) => {
   const { data, error } = await supabase
     .from('products')
@@ -75,12 +83,13 @@ export const getProductsByCategory = async (category: string) => {
     `)
     .eq('category', category)
     .eq('is_available', true)
+    .eq('moderation_status', 'approved')
     .order('created_at', { ascending: false })
-  
+
   return { data: data as Product[] | null, error }
 }
 
-// Función para buscar productos
+// Función para buscar productos (vista pública)
 export const searchProducts = async (searchTerm: string) => {
   const { data, error } = await supabase
     .from('products')
@@ -90,8 +99,9 @@ export const searchProducts = async (searchTerm: string) => {
     `)
     .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,category.ilike.%${searchTerm}%`)
     .eq('is_available', true)
+    .eq('moderation_status', 'approved')
     .order('created_at', { ascending: false })
-  
+
   return { data: data as Product[] | null, error }
 }
 
@@ -239,7 +249,7 @@ export const getProductStatsByStore = async (storeId: string) => {
   }
 }
 
-// Función para obtener productos más vendidos (simulado por ahora)
+// Función para obtener productos más vendidos (vista pública)
 export const getTopProducts = async (limit: number = 10) => {
   const { data, error } = await supabase
     .from('products')
@@ -248,6 +258,7 @@ export const getTopProducts = async (limit: number = 10) => {
       store:stores(id, name, category)
     `)
     .eq('is_available', true)
+    .eq('moderation_status', 'approved')
     .order('created_at', { ascending: false })
     .limit(limit)
 

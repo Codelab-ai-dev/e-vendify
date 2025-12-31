@@ -1,153 +1,229 @@
 "use client"
 
-import { ShoppingCart, Plus, Minus, Trash2, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-    SheetFooter,
-    SheetClose
-} from "@/components/ui/sheet"
-import { useCart } from "@/lib/store/useCart"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import Link from "next/link"
 import { useState, useEffect } from "react"
-import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
+import { motion, AnimatePresence } from "framer-motion"
+import { ShoppingCart, Plus, Minus, Trash2, X, ArrowRight, Package } from "lucide-react"
+import { useCart } from "@/lib/store/useCart"
 
 export function CartDrawer() {
-    const { items, removeItem, updateQuantity, total, itemCount } = useCart()
-    const [isMounted, setIsMounted] = useState(false)
+  const { items, removeItem, updateQuantity, total, itemCount } = useCart()
+  const [isOpen, setIsOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
-    // Prevent hydration mismatch
-    useEffect(() => {
-        setIsMounted(true)
-    }, [])
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
-    if (!isMounted) {
-        return (
-            <Button variant="outline" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-            </Button>
-        )
+  // Close on escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
     }
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape)
+      document.body.style.overflow = 'hidden'
+    }
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
 
+  if (!isMounted) {
     return (
-        <Sheet>
-            <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="relative">
-                    <ShoppingCart className="h-5 w-5" />
-                    {itemCount() > 0 && (
-                        <Badge
-                            className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 bg-red-600 hover:bg-red-700"
-                        >
-                            {itemCount()}
-                        </Badge>
-                    )}
-                </Button>
-            </SheetTrigger>
-            <SheetContent className="flex flex-col w-full sm:max-w-md bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800">
-                <SheetHeader>
-                    <SheetTitle className="text-gray-900 dark:text-white">Tu Carrito ({itemCount()} productos)</SheetTitle>
-                </SheetHeader>
-
-                <div className="flex-1 overflow-hidden py-4">
-                    {items.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-center space-y-4">
-                            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full">
-                                <ShoppingCart className="h-12 w-12 text-gray-400 dark:text-gray-500" />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-lg text-gray-900 dark:text-white">Tu carrito está vacío</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs mx-auto mt-1">
-                                    ¡Agrega algunos productos increíbles de nuestras tiendas!
-                                </p>
-                            </div>
-                            <SheetClose asChild>
-                                <Button variant="outline" className="dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Seguir comprando</Button>
-                            </SheetClose>
-                        </div>
-                    ) : (
-                        <ScrollArea className="h-full pr-4">
-                            <div className="space-y-4">
-                                {items.map((item) => (
-                                    <div key={item.id} className="flex gap-4">
-                                        <div className="h-20 w-20 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 overflow-hidden flex-shrink-0">
-                                            <img
-                                                src={item.image_url || "/placeholder.svg?height=80&width=80"}
-                                                alt={item.name}
-                                                className="h-full w-full object-cover"
-                                            />
-                                        </div>
-                                        <div className="flex flex-1 flex-col justify-between">
-                                            <div className="flex justify-between items-start">
-                                                <div>
-                                                    <h4 className="font-medium text-sm line-clamp-2 text-gray-900 dark:text-white">{item.name}</h4>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                                        ${item.price.toLocaleString()}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-500"
-                                                    onClick={() => removeItem(item.id)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    className="h-6 w-6 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                                >
-                                                    <Minus className="h-3 w-3" />
-                                                </Button>
-                                                <span className="text-sm w-8 text-center text-gray-900 dark:text-white">{item.quantity}</span>
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    className="h-6 w-6 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                                >
-                                                    <Plus className="h-3 w-3" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    )}
-                </div>
-
-                {items.length > 0 && (
-                    <SheetFooter className="flex-col sm:flex-col gap-4 border-t border-gray-200 dark:border-gray-800 pt-4">
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-base font-medium text-gray-900 dark:text-white">
-                                <span>Total</span>
-                                <span>${total().toLocaleString()}</span>
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Impuestos y envío calculados al finalizar la compra.
-                            </p>
-                        </div>
-                        <SheetClose asChild>
-                            <Link href={`/store/${items[0]?.storeId}/checkout`}>
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="lg">
-                                    Proceder al Pago
-                                </Button>
-                            </Link>
-                        </SheetClose>
-                    </SheetFooter>
-                )}
-            </SheetContent>
-
-        </Sheet>
+      <button className="w-10 h-10 border-2 border-border flex items-center justify-center relative">
+        <ShoppingCart className="w-5 h-5" />
+      </button>
     )
+  }
+
+  const count = itemCount()
+
+  return (
+    <>
+      {/* Trigger Button */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="w-10 h-10 border-2 border-border flex items-center justify-center relative hover:border-foreground transition-colors"
+      >
+        <ShoppingCart className="w-5 h-5" />
+        {count > 0 && (
+          <span className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center">
+            {count}
+          </span>
+        )}
+      </button>
+
+      {/* Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50"
+            />
+
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'tween', duration: 0.3 }}
+              className="fixed top-0 right-0 h-full w-full sm:w-[420px] bg-background border-l-2 border-border z-50 flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b-2 border-border">
+                <div>
+                  <h2 className="font-display font-bold text-xl">Tu carrito</h2>
+                  <p className="text-sm text-muted-foreground font-mono">{count} productos</p>
+                </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="w-10 h-10 border-2 border-border flex items-center justify-center hover:border-foreground transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto">
+                {items.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-20 h-20 border-2 border-border flex items-center justify-center mb-6">
+                      <ShoppingCart className="w-10 h-10 text-muted-foreground" />
+                    </div>
+                    <h3 className="font-display font-bold text-xl mb-2">Carrito vacio</h3>
+                    <p className="text-muted-foreground mb-6 max-w-xs">
+                      Agrega algunos productos para comenzar tu compra.
+                    </p>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="btn-brutal-outline px-6 py-3"
+                    >
+                      Seguir comprando
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-6 space-y-4">
+                    {items.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="border-2 border-border p-4"
+                      >
+                        <div className="flex gap-4">
+                          {/* Image */}
+                          <div className="w-20 h-20 border-2 border-border overflow-hidden flex-shrink-0 bg-muted">
+                            {item.image_url ? (
+                              <img
+                                src={item.image_url}
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-8 h-8 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start gap-2">
+                              <h4 className="font-display font-bold text-sm line-clamp-2">
+                                {item.name}
+                              </h4>
+                              <button
+                                onClick={() => removeItem(item.id)}
+                                className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex-shrink-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <p className="font-mono text-sm text-muted-foreground mt-1">
+                              ${item.price.toLocaleString()} c/u
+                            </p>
+
+                            {/* Quantity controls */}
+                            <div className="flex items-center justify-between mt-3">
+                              <div className="flex items-center border-2 border-border">
+                                <button
+                                  onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                  className="w-8 h-8 flex items-center justify-center hover:bg-muted transition-colors"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="w-10 text-center font-mono text-sm">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                  className="w-8 h-8 flex items-center justify-center hover:bg-muted transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <span className="font-display font-bold">
+                                ${(item.price * item.quantity).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              {items.length > 0 && (
+                <div className="border-t-2 border-border p-6 space-y-4">
+                  {/* Subtotal */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-mono">${total().toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-display font-bold text-lg">Total</span>
+                      <span className="font-display font-bold text-2xl">${total().toLocaleString()}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Impuestos y envio calculados al finalizar.
+                    </p>
+                  </div>
+
+                  {/* Checkout button */}
+                  <Link
+                    href={`/store/${items[0]?.storeId}/checkout`}
+                    onClick={() => setIsOpen(false)}
+                    className="btn-brutal w-full py-4 inline-flex items-center justify-center gap-2"
+                  >
+                    Proceder al pago
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+
+                  {/* Continue shopping */}
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="w-full py-3 border-2 border-border text-center font-medium hover:border-foreground transition-colors"
+                  >
+                    Seguir comprando
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  )
 }

@@ -42,8 +42,17 @@ export interface CreatePreferenceInput {
  */
 export async function createPaymentPreference(input: CreatePreferenceInput) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')
 
-  const preferenceData = {
+  // MercadoPago no acepta localhost para back_urls
+  // En desarrollo, usamos URLs de produccion o deshabilitamos auto_return
+  const backUrls = isLocalhost ? undefined : {
+    success: `${baseUrl}/store/${input.storeId}/checkout/success?order_id=${input.orderId}`,
+    failure: `${baseUrl}/store/${input.storeId}/checkout/failure?order_id=${input.orderId}`,
+    pending: `${baseUrl}/store/${input.storeId}/checkout/pending?order_id=${input.orderId}`,
+  }
+
+  const preferenceData: Record<string, unknown> = {
     items: input.items.map(item => ({
       id: item.id,
       title: item.title,
@@ -59,19 +68,19 @@ export async function createPaymentPreference(input: CreatePreferenceInput) {
         number: input.payer.phone,
       } : undefined,
     },
-    back_urls: {
-      success: `${baseUrl}/store/${input.storeId}/checkout/success?order_id=${input.orderId}`,
-      failure: `${baseUrl}/store/${input.storeId}/checkout/failure?order_id=${input.orderId}`,
-      pending: `${baseUrl}/store/${input.storeId}/checkout/pending?order_id=${input.orderId}`,
-    },
-    auto_return: 'approved' as const,
     external_reference: input.orderId,
     statement_descriptor: input.storeName.slice(0, 22),
-    notification_url: `${baseUrl}/api/webhooks/mercadopago`,
     metadata: {
       order_id: input.orderId,
       store_id: input.storeId,
     },
+  }
+
+  // Solo agregar back_urls y auto_return si no es localhost
+  if (backUrls) {
+    preferenceData.back_urls = backUrls
+    preferenceData.auto_return = 'approved'
+    preferenceData.notification_url = `${baseUrl}/api/webhooks/mercadopago`
   }
 
   try {
@@ -83,11 +92,13 @@ export async function createPaymentPreference(input: CreatePreferenceInput) {
       initPoint: preference.init_point,
       sandboxInitPoint: preference.sandbox_init_point,
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating MercadoPago preference:', error)
+    // MercadoPago SDK devuelve errores con estructura especial
+    const errorMessage = error?.message || error?.cause?.[0]?.description || 'Error desconocido'
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Error desconocido',
+      error: errorMessage,
     }
   }
 }

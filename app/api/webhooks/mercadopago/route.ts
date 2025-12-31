@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPaymentDetails, mapPaymentStatusToOrderStatus } from '@/lib/mercadopago'
 import { updateOrderStatus, getOrderById } from '@/lib/orders'
+import { notifyOrderStatusChange } from '@/lib/notifications'
 import crypto from 'crypto'
 
 /**
@@ -13,10 +14,13 @@ function verifyWebhookSignature(
 ): boolean {
   const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET
 
-  // Si no hay secret configurado, permitir en desarrollo
+  // Si no hay secret configurado
   if (!secret) {
-    console.warn('MERCADOPAGO_WEBHOOK_SECRET no configurado')
-    return process.env.NODE_ENV === 'development'
+    console.warn('⚠️  MERCADOPAGO_WEBHOOK_SECRET no configurado - Los webhooks no serán verificados')
+    console.warn('   Obtén tu secret en: https://www.mercadopago.com.mx/developers/panel/app')
+    // En producción, rechazar si no hay secret (más seguro)
+    // En desarrollo, permitir para facilitar testing
+    return process.env.NODE_ENV !== 'production'
   }
 
   if (!xSignature || !xRequestId) {
@@ -79,13 +83,12 @@ export async function POST(request: NextRequest) {
     const isValid = verifyWebhookSignature(xSignature, xRequestId, paymentId)
 
     if (!isValid) {
-      console.warn('Firma de webhook inválida')
-      if (process.env.NODE_ENV === 'production') {
-        return NextResponse.json(
-          { error: 'Invalid signature' },
-          { status: 401 }
-        )
-      }
+      console.warn('⚠️  Firma de webhook inválida para payment:', paymentId)
+      // Rechazar siempre webhooks con firma inválida (seguridad)
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      )
     }
 
     // 4. Obtener detalles del pago desde MercadoPago
@@ -138,6 +141,15 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(`Orden ${orderId} actualizada a ${newStatus}`)
+
+      // Enviar notificación de cambio de estado (async)
+      getOrderById(orderId).then(({ order: updatedOrder }) => {
+        if (updatedOrder) {
+          notifyOrderStatusChange(updatedOrder, newStatus).catch(err => {
+            console.error('Error sending status notification:', err)
+          })
+        }
+      })
     }
 
     // 8. Responder éxito

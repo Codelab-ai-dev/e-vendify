@@ -9,7 +9,12 @@ export interface Order {
   customer_email: string
   customer_phone: string | null
   customer_address: string | null
+  customer_notes: string | null
+  delivery_method: 'delivery' | 'pickup' | null
+  delivery_location: { lat: number; lng: number } | null
   total_amount: number
+  discount_amount: number
+  coupon_id: string | null
   status: OrderStatus
   payment_id: string | null
   created_at: string
@@ -33,7 +38,12 @@ export interface CreateOrderInput {
   customer_email: string
   customer_phone?: string
   customer_address?: string
+  customer_notes?: string
+  delivery_method?: 'delivery' | 'pickup'
+  delivery_location?: { lat: number; lng: number }
   total_amount: number
+  discount_amount?: number
+  coupon_id?: string
   items: CreateOrderItemInput[]
 }
 

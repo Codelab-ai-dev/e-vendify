@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { supabaseAdmin } from './supabase-server'
 import type { Order, CreateOrderInput, OrderStatus } from './types/orders'
 
 /**
@@ -10,7 +10,7 @@ export async function createOrder(input: CreateOrderInput): Promise<{
 }> {
   try {
     // 1. Crear la orden
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
         store_id: input.store_id,
@@ -18,7 +18,12 @@ export async function createOrder(input: CreateOrderInput): Promise<{
         customer_email: input.customer_email,
         customer_phone: input.customer_phone || null,
         customer_address: input.customer_address || null,
+        customer_notes: input.customer_notes || null,
+        delivery_method: input.delivery_method || null,
+        delivery_location: input.delivery_location || null,
         total_amount: input.total_amount,
+        discount_amount: input.discount_amount || 0,
+        coupon_id: input.coupon_id || null,
         status: 'pending' as OrderStatus,
       })
       .select()
@@ -36,13 +41,13 @@ export async function createOrder(input: CreateOrderInput): Promise<{
       price: item.price,
     }))
 
-    const { error: itemsError } = await supabase
+    const { error: itemsError } = await supabaseAdmin
       .from('order_items')
       .insert(orderItems)
 
     if (itemsError) {
       // Rollback: eliminar la orden si falla la inserción de items
-      await supabase.from('orders').delete().eq('id', order.id)
+      await supabaseAdmin.from('orders').delete().eq('id', order.id)
       throw itemsError
     }
 
@@ -71,7 +76,7 @@ export async function updateOrderStatus(
       updateData.payment_id = paymentId
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('orders')
       .update(updateData)
       .eq('id', orderId)
@@ -93,7 +98,7 @@ export async function getOrderById(orderId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('orders')
       .select(`
         *,
@@ -119,7 +124,7 @@ export async function getOrderByPaymentId(paymentId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('orders')
       .select(`
         *,
@@ -145,7 +150,7 @@ export async function getOrdersByStore(storeId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('orders')
       .select(`
         *,

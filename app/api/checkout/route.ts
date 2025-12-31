@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createOrder } from '@/lib/orders'
+import { createOrder, getOrderById } from '@/lib/orders'
 import { createPaymentPreference } from '@/lib/mercadopago'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-server'
+import { notifyNewOrder } from '@/lib/notifications'
 import { z } from 'zod'
 
 // Schema de validación
@@ -12,6 +13,11 @@ const checkoutSchema = z.object({
     email: z.string().email('Email inválido'),
     phone: z.string().optional(),
     address: z.string().optional(),
+    notes: z.string().optional(),
+    delivery_location: z.object({
+      lat: z.number(),
+      lng: z.number(),
+    }).optional(),
   }),
   items: z.array(z.object({
     id: z.string(),
@@ -19,29 +25,38 @@ const checkoutSchema = z.object({
     price: z.number().positive('Precio debe ser positivo'),
     quantity: z.number().int().positive('Cantidad debe ser positiva'),
   })).min(1, 'El carrito está vacío'),
+  delivery_method: z.enum(['delivery', 'pickup']).optional(),
 })
 
 export async function POST(request: NextRequest) {
   try {
     // 1. Parsear y validar el body
     const body = await request.json()
+    console.log('Checkout request body:', JSON.stringify(body, null, 2))
+
     const validation = checkoutSchema.safeParse(body)
 
     if (!validation.success) {
+      console.log('Validation error:', validation.error.flatten())
       return NextResponse.json(
         { error: 'Datos inválidos', details: validation.error.flatten() },
         { status: 400 }
       )
     }
 
-    const { store_id, customer, items } = validation.data
+    const { store_id, customer, items, delivery_method } = validation.data
 
     // 2. Verificar que la tienda existe
-    const { data: store, error: storeError } = await supabase
+    console.log('Looking for store:', store_id)
+    const { data: store, error: storeError } = await supabaseAdmin
       .from('stores')
       .select('id, name, business_name')
       .eq('id', store_id)
       .single()
+
+    if (storeError) {
+      console.log('Store lookup error:', storeError)
+    }
 
     if (storeError || !store) {
       return NextResponse.json(
@@ -49,6 +64,7 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       )
     }
+    console.log('Store found:', store.name)
 
     // 3. Calcular total
     const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
@@ -60,6 +76,9 @@ export async function POST(request: NextRequest) {
       customer_email: customer.email,
       customer_phone: customer.phone,
       customer_address: customer.address,
+      customer_notes: customer.notes,
+      delivery_method: delivery_method,
+      delivery_location: customer.delivery_location,
       total_amount: total,
       items: items.map(item => ({
         product_id: item.id,
@@ -72,12 +91,14 @@ export async function POST(request: NextRequest) {
     if (orderError || !order) {
       console.error('Error creating order:', orderError)
       return NextResponse.json(
-        { error: 'Error al crear la orden' },
+        { error: 'Error al crear la orden', details: orderError?.message },
         { status: 500 }
       )
     }
+    console.log('Order created:', order.id)
 
     // 5. Crear preferencia en MercadoPago
+    console.log('Creating MercadoPago preference...')
     const preference = await createPaymentPreference({
       orderId: order.id,
       storeId: store_id,
@@ -96,8 +117,9 @@ export async function POST(request: NextRequest) {
     })
 
     if (!preference.success) {
+      console.error('MercadoPago error:', preference.error)
       // Si falla MP, actualizar orden a cancelled
-      await supabase
+      await supabaseAdmin
         .from('orders')
         .update({ status: 'cancelled' })
         .eq('id', order.id)
@@ -107,8 +129,18 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+    console.log('MercadoPago preference created:', preference.preferenceId)
 
-    // 6. Retornar URL de pago
+    // 6. Enviar notificaciones (async, no bloquea la respuesta)
+    getOrderById(order.id).then(({ order: fullOrder }) => {
+      if (fullOrder) {
+        notifyNewOrder(fullOrder).catch(err => {
+          console.error('Error sending order notification:', err)
+        })
+      }
+    })
+
+    // 7. Retornar URL de pago
     return NextResponse.json({
       success: true,
       order_id: order.id,
@@ -119,7 +151,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Checkout error:', error)
     return NextResponse.json(
-      { error: 'Error interno del servidor' },
+      {
+        error: 'Error interno del servidor',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }

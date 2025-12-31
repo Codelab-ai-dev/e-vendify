@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import dynamic from "next/dynamic"
 import { motion } from "framer-motion"
-import { Plus, Edit, Trash2, Eye, LogOut, Package, ShoppingBag, DollarSign, Zap, Menu, X, Settings, BarChart3 } from "lucide-react"
+import { Plus, Edit, Trash2, Eye, LogOut, Package, ShoppingBag, DollarSign, Menu, X, Settings, ClipboardList, BarChart3, Star } from "lucide-react"
 import { supabase, isAdmin } from "@/lib/supabase"
 import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
@@ -32,6 +32,31 @@ const OnboardingChecklist = dynamic(() => import("@/components/dashboard/Onboard
     <div className="border-2 border-primary p-6 animate-pulse">
       <div className="h-6 w-48 bg-muted mb-4" />
       <div className="h-16 w-full bg-muted" />
+    </div>
+  ),
+  ssr: false
+})
+
+const AnalyticsDashboard = dynamic(() => import("@/components/dashboard/AnalyticsDashboard").then(mod => ({ default: mod.AnalyticsDashboard })), {
+  loading: () => (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="h-32 bg-muted border-2 border-border" />
+        ))}
+      </div>
+      <div className="h-64 bg-muted border-2 border-border" />
+    </div>
+  ),
+  ssr: false
+})
+
+const ReviewsManager = dynamic(() => import("@/components/dashboard/ReviewsManager").then(mod => ({ default: mod.ReviewsManager })), {
+  loading: () => (
+    <div className="space-y-4 animate-pulse">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="h-40 bg-muted border-2 border-border" />
+      ))}
     </div>
   ),
   ssr: false
@@ -86,7 +111,7 @@ export default function DashboardPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'productos' | 'configuracion'>('productos')
+  const [activeTab, setActiveTab] = useState<'productos' | 'analytics' | 'reviews' | 'configuracion'>('productos')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const loadUserData = async () => {
@@ -471,6 +496,53 @@ export default function DashboardPage() {
               />
             )}
           </button>
+          <Link
+            href="/dashboard/orders"
+            className="px-6 py-4 font-medium text-sm transition-colors relative text-muted-foreground hover:text-foreground"
+          >
+            <span className="flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Pedidos
+            </span>
+          </Link>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-6 py-4 font-medium text-sm transition-colors relative ${
+              activeTab === 'analytics'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Analytics
+            </span>
+            {activeTab === 'analytics' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+              />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={`px-6 py-4 font-medium text-sm transition-colors relative ${
+              activeTab === 'reviews'
+                ? 'text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Star className="w-4 h-4" />
+              Reseñas
+            </span>
+            {activeTab === 'reviews' && (
+              <motion.div
+                layoutId="activeTab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"
+              />
+            )}
+          </button>
           <button
             onClick={() => setActiveTab('configuracion')}
             className={`px-6 py-4 font-medium text-sm transition-colors relative ${
@@ -620,6 +692,28 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
+          </motion.div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && businessProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <AnalyticsDashboard storeId={businessProfile.id} />
+          </motion.div>
+        )}
+
+        {/* Reviews Tab */}
+        {activeTab === 'reviews' && businessProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ReviewsManager storeId={businessProfile.id} />
           </motion.div>
         )}
 

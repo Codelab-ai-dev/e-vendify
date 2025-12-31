@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { toast } from "sonner"
 import { useTheme } from "next-themes"
 import { uploadProductImage } from "@/lib/storage"
+import { moderateContent, type ModerationStatus } from "@/lib/moderation"
 
 const productCategories = [
   "Alimentacion y Bebidas",
@@ -119,9 +120,23 @@ export default function NewProductPage() {
     setIsLoading(true)
 
     try {
+      // 1. Moderar contenido antes de continuar
+      const moderation = moderateContent(
+        formData.name.trim(),
+        formData.description.trim(),
+        formData.category
+      )
+
+      // Si el contenido es de alto riesgo, rechazar inmediatamente
+      if (moderation.status === 'rejected') {
+        toast.error(moderation.message || 'Este producto no puede ser publicado porque viola nuestras políticas.')
+        setIsLoading(false)
+        return
+      }
+
       let imageUrl: string | null = null
 
-      // Subir imagen si hay archivo seleccionado
+      // 2. Subir imagen si hay archivo seleccionado
       if (imageFile && user) {
         setIsUploading(true)
         const uploadResult = await uploadProductImage(imageFile, user.id)
@@ -136,6 +151,7 @@ export default function NewProductPage() {
         imageUrl = uploadResult.url || null
       }
 
+      // 3. Preparar datos del producto con estado de moderación
       const productData = {
         name: formData.name.trim(),
         description: formData.description.trim() || null,
@@ -144,6 +160,8 @@ export default function NewProductPage() {
         image_url: imageUrl,
         store_id: storeId,
         is_available: true,
+        moderation_status: moderation.status as ModerationStatus,
+        flagged_words: moderation.flaggedWords.length > 0 ? moderation.flaggedWords : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
@@ -172,7 +190,18 @@ export default function NewProductPage() {
         console.error('Error al actualizar contador de productos:', updateError)
       }
 
-      toast.success('Producto agregado exitosamente')
+      // Mensaje según estado de moderación
+      if (moderation.status === 'flagged') {
+        toast.warning('Producto guardado. Requiere revisión antes de publicarse.', {
+          duration: 5000,
+        })
+      } else if (moderation.status === 'pending') {
+        toast.success('Producto guardado. Será visible una vez aprobado.', {
+          duration: 4000,
+        })
+      } else {
+        toast.success('Producto agregado exitosamente')
+      }
 
       setTimeout(() => {
         router.push('/dashboard')

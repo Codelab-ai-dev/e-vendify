@@ -11,15 +11,29 @@ const nextConfig = {
     unoptimized: false,
     // Formatos modernos para mejor compresión
     formats: ['image/avif', 'image/webp'],
-    // Dominios remotos permitidos
+    // Dominios remotos permitidos (restringido por seguridad)
     remotePatterns: [
+      // Supabase Storage - tu instancia
       {
         protocol: 'https',
-        hostname: '**', // Permitir todos los dominios HTTPS
+        hostname: 'srv1235565.hstgr.cloud',
+        pathname: '/storage/v1/object/public/**',
       },
+      // Supabase Storage - dominios estándar
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+      // Desarrollo local
       {
         protocol: 'http',
         hostname: 'localhost',
+      },
+      // Placeholder para productos sin imagen
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
       },
     ],
     // Tamaños de dispositivos para responsive images
