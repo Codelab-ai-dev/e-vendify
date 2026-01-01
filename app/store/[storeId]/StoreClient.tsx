@@ -6,7 +6,7 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
-import { Store, MessageCircle, MapPin, Clock, ShoppingCart, ExternalLink, Search, Package, X, Moon, Sun } from "lucide-react"
+import { Store, MessageCircle, MapPin, Clock, ShoppingCart, ExternalLink, Search, Package, X, Moon, Sun, Bot } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { toast } from "sonner"
 import { useCart } from "@/lib/store/useCart"
@@ -16,6 +16,9 @@ const CartDrawer = dynamic(() => import("@/components/store/CartDrawer").then(mo
   loading: () => null,
   ssr: false
 })
+
+// Numero de WhatsApp del agente (Twilio) - sin el +
+const AGENT_WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_TWILIO_WHATSAPP_NUMBER?.replace('+', '') || '13854549920'
 
 interface StoreData {
   id: string
@@ -40,6 +43,7 @@ interface StoreData {
   last_login: string
   plan: 'basic' | 'premium'
   slug: string
+  whatsapp_code: string | null
   created_at: string
   updated_at: string
 }
@@ -258,15 +262,28 @@ export default function StoreClient() {
               </p>
 
               <div className="flex flex-wrap gap-3">
+                {/* Boton para hablar con el agente IA */}
+                {store.whatsapp_code && (
+                  <a
+                    href={`https://wa.me/${AGENT_WHATSAPP_NUMBER}?text=${store.whatsapp_code}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-brutal px-6 py-3 inline-flex items-center gap-2"
+                  >
+                    <Bot className="w-4 h-4" />
+                    Asistente IA
+                  </a>
+                )}
+                {/* Boton para hablar directo con el vendedor */}
                 {store.phone && (
                   <a
                     href={`https://wa.me/${store.phone}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-brutal px-6 py-3 inline-flex items-center gap-2"
+                    className="px-6 py-3 border-2 border-border inline-flex items-center gap-2 hover:border-foreground transition-colors"
                   >
                     <MessageCircle className="w-4 h-4" />
-                    WhatsApp
+                    Contactar vendedor
                   </a>
                 )}
                 {store.website && (

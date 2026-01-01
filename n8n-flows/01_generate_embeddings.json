@@ -1,0 +1,144 @@
+{
+  "name": "E-Vendify - Generate Product Embeddings",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "e-vendify/embeddings",
+        "options": {
+          "responseMode": "responseNode"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "webhook-trigger",
+      "name": "Webhook - Product Created/Updated",
+      "webhookId": "e-vendify-embeddings"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer datos del webhook\nconst body = $json.body;\nconst { knowledge_base_id, store_id, content_text, title, content_type } = body;\n\nconsole.log('📝 Generando embedding para:', title);\nconsole.log('Knowledge Base ID:', knowledge_base_id);\nconsole.log('Store ID:', store_id);\nconsole.log('Content Type:', content_type);\n\n// Validar datos requeridos\nif (!knowledge_base_id || !content_text) {\n  throw new Error('Faltan datos requeridos: knowledge_base_id o content_text');\n}\n\n// Llamar a OpenAI para generar embedding\nconst response = await this.helpers.httpRequest({\n  method: 'POST',\n  url: 'https://api.openai.com/v1/embeddings',\n  headers: {\n    'Authorization': `Bearer ${$env.OPENAI_API_KEY}`,\n    'Content-Type': 'application/json',\n  },\n  body: {\n    input: content_text,\n    model: 'text-embedding-3-small'\n  },\n});\n\nconst embedding = response.data[0].embedding;\n\nconsole.log('✅ Embedding generado:', embedding.length, 'dimensiones');\n\n// Preparar resultado\nconst result = {\n  id: knowledge_base_id,\n  embedding: embedding,\n  store_id: store_id,\n  title: title,\n  updated_at: new Date().toISOString()\n};\n\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "id": "generate-embedding",
+      "name": "Generate Embedding (OpenAI)"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "store_knowledge_base",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "embedding",
+              "fieldValue": "={{ JSON.stringify($json.embedding) }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $json.updated_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [440, 0],
+      "id": "update-supabase",
+      "name": "Update Embedding in Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase-e-vendify"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 0],
+      "id": "respond-success",
+      "name": "Respond Success"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: false, error: $json.message } }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 200],
+      "id": "respond-error",
+      "name": "Respond Error"
+    }
+  ],
+  "connections": {
+    "Webhook - Product Created/Updated": {
+      "main": [
+        [
+          {
+            "node": "Generate Embedding (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Embedding (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Update Embedding in Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Embedding in Supabase": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "",
+    "timezone": "America/Mexico_City"
+  },
+  "staticData": null,
+  "pinData": {},
+  "active": true,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "name": "e-vendify"
+    }
+  ]
+}
