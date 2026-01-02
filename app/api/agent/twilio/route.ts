@@ -17,6 +17,8 @@ import { TwilioWebhookPayload, AgentRequest } from '@/lib/types/agent.types';
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID!;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN!;
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER!;
+// URL del webhook configurada en Twilio (para validación de firma)
+const TWILIO_WEBHOOK_URL = process.env.TWILIO_WEBHOOK_URL || 'https://e-vendify.com/api/agent/twilio';
 
 // Cliente Twilio
 const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
@@ -41,19 +43,19 @@ export async function POST(request: NextRequest) {
 
     // 2. Validar firma de Twilio (seguridad) - solo en producción
     const signature = request.headers.get('x-twilio-signature');
-    const url = request.url;
     const isProduction = process.env.NODE_ENV === 'production';
 
     if (isProduction && signature && TWILIO_AUTH_TOKEN) {
+      // Usar URL fija para validación (la URL configurada en Twilio)
       const isValid = twilio.validateRequest(
         TWILIO_AUTH_TOKEN,
         signature,
-        url,
+        TWILIO_WEBHOOK_URL,
         Object.fromEntries(formData) as Record<string, string>
       );
 
       if (!isValid) {
-        console.warn('[Twilio] Invalid signature');
+        console.warn('[Twilio] Invalid signature. Expected URL:', TWILIO_WEBHOOK_URL);
         return NextResponse.json({ error: 'Invalid signature' }, { status: 403 });
       }
     }
