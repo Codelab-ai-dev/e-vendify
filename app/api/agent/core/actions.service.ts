@@ -698,13 +698,18 @@ export class ActionsService {
       const nameParts = (customer?.customer_name || 'Cliente').split(' ');
       const storeName = store.business_name || store.name;
 
+      // MercadoPago requiere un email válido con dominio real
+      // Si no hay email del cliente, generamos uno temporal con dominio válido
+      const payerEmail = customer?.customer_email ||
+        `cliente.${identity.phoneNumber.replace(/[^0-9]/g, '')}@e-vendify.com`;
+
       const oxxoResult = await createOxxoTicket({
         orderId: order.id,
         storeId: identity.storeId,
         amount: cart.total,
         description: `Pedido ${storeName}`,
         payer: {
-          email: customer?.customer_email || `${identity.phoneNumber.replace('+', '')}@whatsapp.temp`,
+          email: payerEmail,
           firstName: nameParts[0] || 'Cliente',
           lastName: nameParts.slice(1).join(' ') || 'WhatsApp',
         },

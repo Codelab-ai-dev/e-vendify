@@ -45,7 +45,7 @@ export async function GET() {
       description: 'Test OXXO Payment',
       payment_method_id: 'oxxo',
       payer: {
-        email: 'test@test.com',
+        email: 'test@e-vendify.com', // Dominio real requerido por MercadoPago
         first_name: 'Test',
         last_name: 'User',
         identification: {
