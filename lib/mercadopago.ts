@@ -162,6 +162,15 @@ export interface OxxoTicketResult {
  */
 export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTicketResult> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://e-vendify.com'
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN
+
+  if (!accessToken) {
+    console.error('[OXXO] No MERCADOPAGO_ACCESS_TOKEN configured')
+    return {
+      success: false,
+      error: 'MercadoPago no está configurado',
+    }
+  }
 
   try {
     // MercadoPago requiere estos campos para pagos OXXO en México
@@ -175,7 +184,7 @@ export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTick
         last_name: input.payer.lastName,
         // Identification es requerido para OXXO en México
         identification: {
-          type: 'CURP', // o 'INE'
+          type: 'CURP',
           number: 'XEXX010101HNEXXXA4', // CURP genérico para extranjeros/no especificado
         },
       },
@@ -189,7 +198,35 @@ export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTick
 
     console.log('[OXXO] Creating payment with:', JSON.stringify(paymentData, null, 2))
 
-    const payment = await paymentApi.create({ body: paymentData })
+    // Intentar primero con llamada directa a la API para mejor debugging
+    const directResponse = await fetch('https://api.mercadopago.com/v1/payments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': `oxxo-${input.orderId}-${Date.now()}`,
+      },
+      body: JSON.stringify(paymentData),
+    })
+
+    const responseData = await directResponse.json()
+    console.log('[OXXO] API Response status:', directResponse.status)
+    console.log('[OXXO] API Response:', JSON.stringify(responseData, null, 2))
+
+    if (!directResponse.ok) {
+      // Extraer error de la respuesta
+      const errorMsg = responseData.message ||
+                       responseData.error ||
+                       responseData.cause?.[0]?.description ||
+                       `Error HTTP ${directResponse.status}`
+      console.error('[OXXO] API Error:', errorMsg)
+      return {
+        success: false,
+        error: errorMsg,
+      }
+    }
+
+    const payment = responseData
 
     // Extraer información del ticket
     const transactionDetails = payment.transaction_details as {
@@ -220,22 +257,50 @@ export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTick
       ticketUrl: transactionDetails?.external_resource_url,
     }
   } catch (error: unknown) {
-    console.error('[OXXO] Error creating ticket:', error)
+    // Log completo del error para debugging
+    console.error('[OXXO] Full error object:', JSON.stringify(error, null, 2))
+    console.error('[OXXO] Error type:', typeof error)
+    console.error('[OXXO] Error constructor:', error?.constructor?.name)
 
     // Extraer mensaje de error de MercadoPago
     let errorMessage = 'Error desconocido'
+
     if (error instanceof Error) {
       errorMessage = error.message
-    }
-    // MercadoPago SDK puede devolver errores con estructura especial
-    if (typeof error === 'object' && error !== null) {
-      const mpError = error as { cause?: Array<{ code?: string; description?: string }> }
-      if (mpError.cause && mpError.cause[0]) {
-        errorMessage = mpError.cause[0].description || mpError.cause[0].code || errorMessage
-      }
+      console.error('[OXXO] Error.message:', error.message)
+      console.error('[OXXO] Error.stack:', error.stack)
     }
 
-    console.error('[OXXO] Error message:', errorMessage)
+    // MercadoPago SDK puede devolver errores con estructura especial
+    if (typeof error === 'object' && error !== null) {
+      const mpError = error as {
+        cause?: Array<{ code?: string; description?: string }>
+        message?: string
+        status?: number
+        error?: string
+        apiResponse?: { status?: number; content?: unknown }
+      }
+
+      // Intentar extraer de diferentes estructuras
+      if (mpError.cause && mpError.cause[0]) {
+        const cause = mpError.cause[0]
+        errorMessage = cause.description || cause.code || errorMessage
+        console.error('[OXXO] Error cause:', JSON.stringify(mpError.cause))
+      }
+
+      if (mpError.apiResponse) {
+        console.error('[OXXO] API Response:', JSON.stringify(mpError.apiResponse))
+      }
+
+      if (mpError.status) {
+        console.error('[OXXO] Status code:', mpError.status)
+      }
+
+      // Log todas las propiedades del error
+      console.error('[OXXO] Error keys:', Object.keys(error))
+    }
+
+    console.error('[OXXO] Final error message:', errorMessage)
 
     return {
       success: false,
