@@ -164,24 +164,32 @@ export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTick
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://e-vendify.com'
 
   try {
-    const payment = await paymentApi.create({
-      body: {
-        transaction_amount: input.amount,
-        description: input.description,
-        payment_method_id: 'oxxo',
-        payer: {
-          email: input.payer.email,
-          first_name: input.payer.firstName,
-          last_name: input.payer.lastName,
+    // MercadoPago requiere estos campos para pagos OXXO en México
+    const paymentData = {
+      transaction_amount: input.amount,
+      description: input.description,
+      payment_method_id: 'oxxo',
+      payer: {
+        email: input.payer.email,
+        first_name: input.payer.firstName,
+        last_name: input.payer.lastName,
+        // Identification es requerido para OXXO en México
+        identification: {
+          type: 'CURP', // o 'INE'
+          number: 'XEXX010101HNEXXXA4', // CURP genérico para extranjeros/no especificado
         },
-        external_reference: input.orderId,
-        metadata: {
-          order_id: input.orderId,
-          store_id: input.storeId,
-        },
-        notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-      }
-    })
+      },
+      external_reference: input.orderId,
+      metadata: {
+        order_id: input.orderId,
+        store_id: input.storeId,
+      },
+      notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+    }
+
+    console.log('[OXXO] Creating payment with:', JSON.stringify(paymentData, null, 2))
+
+    const payment = await paymentApi.create({ body: paymentData })
 
     // Extraer información del ticket
     const transactionDetails = payment.transaction_details as {
@@ -213,7 +221,22 @@ export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTick
     }
   } catch (error: unknown) {
     console.error('[OXXO] Error creating ticket:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+
+    // Extraer mensaje de error de MercadoPago
+    let errorMessage = 'Error desconocido'
+    if (error instanceof Error) {
+      errorMessage = error.message
+    }
+    // MercadoPago SDK puede devolver errores con estructura especial
+    if (typeof error === 'object' && error !== null) {
+      const mpError = error as { cause?: Array<{ code?: string; description?: string }> }
+      if (mpError.cause && mpError.cause[0]) {
+        errorMessage = mpError.cause[0].description || mpError.cause[0].code || errorMessage
+      }
+    }
+
+    console.error('[OXXO] Error message:', errorMessage)
+
     return {
       success: false,
       error: errorMessage,

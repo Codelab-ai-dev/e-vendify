@@ -764,11 +764,20 @@ export class ActionsService {
       };
     } catch (error) {
       console.error('[OXXO] Checkout error:', error);
+
+      // Mejor extracción de mensaje de error
+      let errorMessage = 'Error al procesar pago OXXO';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error);
+      }
+
       return {
         type: 'create_oxxo_ticket',
         success: false,
         payload: {},
-        error: String(error),
+        error: errorMessage,
       };
     }
   }
