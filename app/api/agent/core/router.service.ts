@@ -194,6 +194,27 @@ const INTENT_PATTERNS: IntentPattern[] = [
       { word: 'confirmar', weight: 7 },
       { word: 'proceder', weight: 7 },
       { word: 'listo para pagar', weight: 10 },
+      { word: 'tarjeta', weight: 8 },
+      { word: 'mercadopago', weight: 9 },
+    ],
+    approach: 'action',
+    requiresConfirmation: true,
+  },
+
+  // Pago OXXO
+  {
+    intent: 'oxxo_checkout',
+    keywords: [
+      { word: 'oxxo', weight: 15 },
+      { word: 'pagar en oxxo', weight: 15 },
+      { word: 'pago oxxo', weight: 15 },
+      { word: 'efectivo', weight: 10 },
+      { word: 'pagar en efectivo', weight: 12 },
+      { word: 'pago en efectivo', weight: 12 },
+      { word: 'sin tarjeta', weight: 8 },
+      { word: 'no tengo tarjeta', weight: 10 },
+      { word: 'tienda oxxo', weight: 12 },
+      { word: 'en el oxxo', weight: 12 },
     ],
     approach: 'action',
     requiresConfirmation: true,

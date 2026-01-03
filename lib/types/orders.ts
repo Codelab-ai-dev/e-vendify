@@ -2,6 +2,8 @@
 
 export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled'
 
+export type PaymentMethod = 'mercadopago' | 'oxxo' | 'spei' | 'transfer' | 'cash'
+
 export interface Order {
   id: string
   store_id: string
@@ -17,6 +19,10 @@ export interface Order {
   coupon_id: string | null
   status: OrderStatus
   payment_id: string | null
+  payment_method: PaymentMethod | null
+  oxxo_reference: string | null
+  oxxo_ticket_id: string | null
+  oxxo_expiration: string | null
   created_at: string
   updated_at: string
   order_items?: OrderItem[]

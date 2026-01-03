@@ -268,7 +268,18 @@ INTENT: Checkout/Pagar
 - Muestra resumen del pedido
 - Proporciona el link de pago
 - Explica los siguientes pasos
+- Menciona que también pueden pagar en OXXO si prefieren efectivo
 - Ofrece ayuda si tienen dudas`,
+
+      oxxo_checkout: `
+INTENT: Pago en OXXO
+- Confirma que generaste el ticket de OXXO
+- Muestra la REFERENCIA en formato destacado: *XXXX XXXX XXXX XXXX*
+- Indica el MONTO exacto a pagar
+- Menciona la FECHA DE VENCIMIENTO (tienen ~3 días)
+- Explica que deben ir a cualquier OXXO y dar la referencia
+- Indica que recibirán confirmación por WhatsApp cuando se procese el pago
+- Usa emojis para hacerlo visual: 🏪💰📅`,
 
       apply_coupon: `
 INTENT: Aplicar cupón
@@ -369,6 +380,8 @@ INTENT: No identificado
         'Estoy buscando productos para ti. ¿Podrías darme más detalles de lo que necesitas?',
       checkout:
         'Para proceder con tu compra, por favor revisa tu carrito y confirma los productos.',
+      oxxo_checkout:
+        '🏪 Para pagar en OXXO, primero necesitas tener productos en tu carrito. ¿Quieres que te ayude a buscar algo?',
       support:
         'Entiendo que necesitas ayuda. Por favor describe tu problema y haré lo posible por asistirte.',
       unknown:

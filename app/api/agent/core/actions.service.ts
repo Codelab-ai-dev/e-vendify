@@ -16,6 +16,7 @@ import {
   AgentError,
 } from '@/lib/types/agent.types';
 import { SQLService } from './sql.service';
+import { createOxxoTicket, formatOxxoReference } from '@/lib/mercadopago';
 
 // Cliente Supabase con service role
 const supabase = createClient(
@@ -59,6 +60,10 @@ export class ActionsService {
 
       case 'checkout':
         results.push(await this.createCheckoutLink(identity));
+        break;
+
+      case 'oxxo_checkout':
+        results.push(await this.createOxxoCheckout(identity));
         break;
 
       case 'support':
@@ -608,6 +613,167 @@ export class ActionsService {
   }
 
   /**
+   * Crea orden y ticket de OXXO para pago en efectivo
+   */
+  static async createOxxoCheckout(
+    identity: CustomerIdentity
+  ): Promise<ActionResult> {
+    try {
+      const cart = await SQLService.getCart(identity.sessionId);
+
+      if (cart.items.length === 0) {
+        return {
+          type: 'create_oxxo_ticket',
+          success: false,
+          payload: {},
+          error: 'El carrito está vacío',
+        };
+      }
+
+      // Obtener datos del cliente
+      const { data: customer } = await supabase
+        .from('whatsapp_customers')
+        .select('customer_name, customer_email, phone_number')
+        .eq('id', identity.customerId)
+        .single();
+
+      // Obtener datos de la tienda
+      const { data: store } = await supabase
+        .from('stores')
+        .select('id, name, business_name, slug')
+        .eq('id', identity.storeId)
+        .single();
+
+      if (!store) {
+        return {
+          type: 'create_oxxo_ticket',
+          success: false,
+          payload: {},
+          error: 'Tienda no encontrada',
+        };
+      }
+
+      // Crear la orden
+      const orderData = {
+        store_id: identity.storeId,
+        customer_name: customer?.customer_name || 'Cliente WhatsApp',
+        customer_email: customer?.customer_email || `${identity.phoneNumber.replace('+', '')}@whatsapp.temp`,
+        customer_phone: identity.phoneNumber,
+        total_amount: cart.total,
+        discount_amount: cart.discountAmount || 0,
+        coupon_id: cart.couponId || null,
+        status: 'pending',
+        payment_method: 'oxxo',
+        delivery_method: 'delivery',
+      };
+
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert(orderData)
+        .select('id')
+        .single();
+
+      if (orderError || !order) {
+        console.error('[OXXO] Error creating order:', orderError);
+        return {
+          type: 'create_oxxo_ticket',
+          success: false,
+          payload: {},
+          error: 'Error al crear la orden',
+        };
+      }
+
+      // Crear order items
+      const orderItems = cart.items.map((item) => ({
+        order_id: order.id,
+        product_id: item.productId,
+        product_name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      await supabase.from('order_items').insert(orderItems);
+
+      // Crear ticket OXXO
+      const nameParts = (customer?.customer_name || 'Cliente').split(' ');
+      const storeName = store.business_name || store.name;
+
+      const oxxoResult = await createOxxoTicket({
+        orderId: order.id,
+        storeId: identity.storeId,
+        amount: cart.total,
+        description: `Pedido ${storeName}`,
+        payer: {
+          email: customer?.customer_email || `${identity.phoneNumber.replace('+', '')}@whatsapp.temp`,
+          firstName: nameParts[0] || 'Cliente',
+          lastName: nameParts.slice(1).join(' ') || 'WhatsApp',
+        },
+      });
+
+      if (!oxxoResult.success) {
+        // Marcar orden como fallida
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', order.id);
+
+        return {
+          type: 'create_oxxo_ticket',
+          success: false,
+          payload: {},
+          error: oxxoResult.error || 'Error al generar ticket OXXO',
+        };
+      }
+
+      // Actualizar orden con referencia OXXO
+      await supabase
+        .from('orders')
+        .update({
+          oxxo_reference: oxxoResult.reference,
+          oxxo_ticket_id: oxxoResult.ticketId,
+          oxxo_expiration: oxxoResult.expirationDate,
+        })
+        .eq('id', order.id);
+
+      // Limpiar carrito después de crear la orden
+      await this.updateSession(identity.sessionId, {
+        cart_items: [],
+        cart_total: 0,
+        applied_coupon_id: null,
+        applied_coupon_code: null,
+        discount_amount: 0,
+        session_state: 'idle',
+      });
+
+      return {
+        type: 'create_oxxo_ticket',
+        success: true,
+        payload: {
+          orderId: order.id,
+          reference: formatOxxoReference(oxxoResult.reference!),
+          referenceRaw: oxxoResult.reference,
+          amount: oxxoResult.amount,
+          expirationDate: oxxoResult.expirationDate,
+          ticketUrl: oxxoResult.ticketUrl,
+        },
+        resultData: {
+          storeName,
+          itemCount: cart.itemCount,
+          total: cart.total,
+        },
+      };
+    } catch (error) {
+      console.error('[OXXO] Checkout error:', error);
+      return {
+        type: 'create_oxxo_ticket',
+        success: false,
+        payload: {},
+        error: String(error),
+      };
+    }
+  }
+
+  /**
    * Formatea resultados de acciones para el LLM
    */
   static formatActionResultsForLLM(results: ActionResult[]): string {
@@ -648,6 +814,9 @@ export class ActionsService {
 
       case 'create_checkout_link':
         return `Link de pago generado: ${resultData?.checkoutUrl}`;
+
+      case 'create_oxxo_ticket':
+        return `Ticket OXXO generado. Referencia: ${payload.reference}. Monto: $${payload.amount} MXN. Vence: ${payload.expirationDate}`;
 
       case 'clear_cart':
         return 'Carrito vaciado';

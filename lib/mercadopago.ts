@@ -130,6 +130,105 @@ export async function getPaymentDetails(paymentId: string) {
   }
 }
 
+// ============================================================================
+// OXXO PAY - Pagos en efectivo
+// ============================================================================
+
+export interface OxxoTicketInput {
+  orderId: string
+  storeId: string
+  amount: number
+  description: string
+  payer: {
+    email: string
+    firstName: string
+    lastName: string
+  }
+}
+
+export interface OxxoTicketResult {
+  success: boolean
+  ticketId?: string
+  reference?: string
+  expirationDate?: string
+  amount?: number
+  ticketUrl?: string
+  error?: string
+}
+
+/**
+ * Crear ticket de pago OXXO
+ * Genera una referencia de pago para que el cliente pague en OXXO
+ */
+export async function createOxxoTicket(input: OxxoTicketInput): Promise<OxxoTicketResult> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://e-vendify.com'
+
+  try {
+    const payment = await paymentApi.create({
+      body: {
+        transaction_amount: input.amount,
+        description: input.description,
+        payment_method_id: 'oxxo',
+        payer: {
+          email: input.payer.email,
+          first_name: input.payer.firstName,
+          last_name: input.payer.lastName,
+        },
+        external_reference: input.orderId,
+        metadata: {
+          order_id: input.orderId,
+          store_id: input.storeId,
+        },
+        notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+      }
+    })
+
+    // Extraer información del ticket
+    const transactionDetails = payment.transaction_details as {
+      verification_code?: string
+      payment_method_reference_id?: string
+      external_resource_url?: string
+    } | undefined
+
+    // Fecha de expiración (OXXO da ~3 días)
+    const expirationDate = payment.date_of_expiration
+      ? new Date(payment.date_of_expiration).toLocaleDateString('es-MX', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      : 'En 3 días'
+
+    return {
+      success: true,
+      ticketId: String(payment.id),
+      reference: transactionDetails?.payment_method_reference_id ||
+                 transactionDetails?.verification_code ||
+                 String(payment.id),
+      expirationDate,
+      amount: payment.transaction_amount,
+      ticketUrl: transactionDetails?.external_resource_url,
+    }
+  } catch (error: unknown) {
+    console.error('[OXXO] Error creating ticket:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+    return {
+      success: false,
+      error: errorMessage,
+    }
+  }
+}
+
+/**
+ * Formatear referencia OXXO para mostrar (grupos de 4 dígitos)
+ */
+export function formatOxxoReference(reference: string): string {
+  const clean = reference.replace(/\s/g, '')
+  return clean.match(/.{1,4}/g)?.join(' ') || reference
+}
+
 /**
  * Mapear estado de MercadoPago a estado de orden
  */

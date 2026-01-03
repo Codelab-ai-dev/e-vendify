@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPaymentDetails, mapPaymentStatusToOrderStatus } from '@/lib/mercadopago'
 import { updateOrderStatus, getOrderById } from '@/lib/orders'
-import { notifyOrderStatusChange } from '@/lib/notifications'
+import { notifyOrderStatusChange, notifyOxxoPaymentConfirmed } from '@/lib/notifications'
 import crypto from 'crypto'
 
 /**
@@ -145,9 +145,17 @@ export async function POST(request: NextRequest) {
       // Enviar notificación de cambio de estado (async)
       getOrderById(orderId).then(({ order: updatedOrder }) => {
         if (updatedOrder) {
+          // Notificación por email
           notifyOrderStatusChange(updatedOrder, newStatus).catch(err => {
             console.error('Error sending status notification:', err)
           })
+
+          // Si es pago OXXO confirmado, enviar WhatsApp
+          if (newStatus === 'paid' && updatedOrder.payment_method === 'oxxo') {
+            notifyOxxoPaymentConfirmed(updatedOrder).catch(err => {
+              console.error('Error sending OXXO WhatsApp notification:', err)
+            })
+          }
         }
       })
     }

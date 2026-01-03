@@ -133,3 +133,92 @@ export function getWhatsAppUrl(phone: string, message: string): string {
 
   return `https://wa.me/${fullPhone}?text=${encodeURIComponent(message)}`
 }
+
+// ============================================================================
+// Notificaciones WhatsApp via Twilio
+// ============================================================================
+
+/**
+ * Enviar mensaje de WhatsApp via Twilio
+ */
+export async function sendWhatsAppNotification(
+  phoneNumber: string,
+  message: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const twilio = await import('twilio')
+    const accountSid = process.env.TWILIO_ACCOUNT_SID
+    const authToken = process.env.TWILIO_AUTH_TOKEN
+    const fromNumber = process.env.TWILIO_WHATSAPP_NUMBER
+
+    if (!accountSid || !authToken || !fromNumber) {
+      console.warn('[WhatsApp] Twilio credentials not configured')
+      return { success: false, error: 'Twilio not configured' }
+    }
+
+    const client = twilio.default(accountSid, authToken)
+
+    // Formatear números
+    const toFormatted = phoneNumber.startsWith('+')
+      ? `whatsapp:${phoneNumber}`
+      : `whatsapp:+${phoneNumber}`
+    const fromFormatted = fromNumber.startsWith('whatsapp:')
+      ? fromNumber
+      : `whatsapp:${fromNumber}`
+
+    const result = await client.messages.create({
+      body: message,
+      from: fromFormatted,
+      to: toFormatted,
+    })
+
+    console.log(`[WhatsApp] Notification sent: ${result.sid}`)
+    return { success: true }
+
+  } catch (error) {
+    console.error('[WhatsApp] Error sending notification:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
+
+/**
+ * Notificar pago OXXO confirmado via WhatsApp
+ */
+export async function notifyOxxoPaymentConfirmed(order: Order): Promise<void> {
+  if (!order.customer_phone) {
+    console.log('[OXXO] No phone number for WhatsApp notification')
+    return
+  }
+
+  try {
+    // Obtener nombre de la tienda
+    const { data: store } = await supabaseAdmin
+      .from('stores')
+      .select('name, business_name')
+      .eq('id', order.store_id)
+      .single()
+
+    const storeName = store?.business_name || store?.name || 'la tienda'
+
+    const message = `✅ *¡Pago recibido!*
+
+Hola ${order.customer_name?.split(' ')[0] || 'Cliente'},
+
+Recibimos tu pago en OXXO para el pedido de *${storeName}*.
+
+📦 *Pedido:* #${order.id.slice(0, 8).toUpperCase()}
+💰 *Total:* $${order.total_amount.toLocaleString('es-MX')} MXN
+
+Tu pedido está siendo preparado. Te avisaremos cuando sea enviado.
+
+¡Gracias por tu compra! 🙏`
+
+    await sendWhatsAppNotification(order.customer_phone, message)
+
+  } catch (error) {
+    console.error('[OXXO] Error sending WhatsApp notification:', error)
+  }
+}
