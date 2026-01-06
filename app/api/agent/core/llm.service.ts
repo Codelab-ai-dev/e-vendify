@@ -340,7 +340,40 @@ INTENT: No identificado
       .map((r) => {
         const status = r.success ? '✓' : '✗';
         const error = r.error ? ` (Error: ${r.error})` : '';
-        return `${status} ${r.type}${error}`;
+
+        // Incluir datos del payload para que el LLM tenga la información real
+        let details = '';
+        if (r.success && r.payload) {
+          const payload = r.payload as Record<string, unknown>;
+
+          switch (r.type) {
+            case 'create_oxxo_ticket':
+              details = `
+  - Referencia OXXO: ${payload.reference || 'N/A'}
+  - Monto: $${payload.amount || 0} MXN
+  - Vence: ${payload.expirationDate || 'En 3 días'}
+  - URL del ticket: ${payload.ticketUrl || 'N/A'}`;
+              break;
+
+            case 'add_to_cart':
+              details = ` - ${payload.productName} x${payload.quantity} ($${payload.price} MXN)`;
+              break;
+
+            case 'remove_from_cart':
+              details = ` - Eliminado: ${payload.productName}`;
+              break;
+
+            case 'apply_coupon':
+              details = ` - Cupón: ${payload.couponCode}`;
+              break;
+
+            case 'create_checkout_link':
+              details = ` - URL: ${payload.checkoutUrl}`;
+              break;
+          }
+        }
+
+        return `${status} ${r.type}${error}${details}`;
       })
       .join('\n');
   }
