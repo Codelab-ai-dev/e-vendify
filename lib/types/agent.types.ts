@@ -30,6 +30,8 @@ export type Intent =
   | 'update_cart'
   | 'checkout'
   | 'oxxo_checkout'
+  | 'select_payment_method'
+  | 'provide_address'
   | 'apply_coupon'
   | 'order_tracking'
   | 'order_history'
@@ -48,6 +50,9 @@ export type ActionType =
   | 'remove_coupon'
   | 'create_checkout_link'
   | 'create_oxxo_ticket'
+  | 'save_address'
+  | 'request_address'
+  | 'request_payment_method'
   | 'send_product_image'
   | 'send_product_list'
   | 'escalate_to_human'
@@ -130,6 +135,10 @@ export interface CustomerIdentity {
   sessionState: SessionState;
   cartItemsCount: number;
   cartTotal: number;
+
+  // Datos de entrega
+  deliveryAddress: string | null;
+  waitingFor: string | null;
 
   // Estado
   isNewCustomer: boolean;

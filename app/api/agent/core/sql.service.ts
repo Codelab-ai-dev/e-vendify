@@ -3,7 +3,6 @@
 // Queries directas a la base de datos para datos estructurados
 // ============================================================================
 
-import { createClient } from '@supabase/supabase-js';
 import {
   CustomerIdentity,
   Intent,
@@ -12,12 +11,7 @@ import {
   Cart,
   CartItem,
 } from '@/lib/types/agent.types';
-
-// Cliente Supabase con service role
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 export class SQLService {
   /**
@@ -59,7 +53,7 @@ export class SQLService {
    * Obtiene el carrito actual del cliente
    */
   static async getCart(sessionId: string): Promise<Cart> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('whatsapp_sessions')
       .select(`
         cart_items,
@@ -164,7 +158,7 @@ export class SQLService {
     identity: CustomerIdentity,
     orderId?: string
   ): Promise<SQLContext> {
-    let query = supabase
+    let query = getSupabaseAdmin()
       .from('orders')
       .select(`
         id,
@@ -248,7 +242,7 @@ export class SQLService {
       };
     }
 
-    const { data: orders, error } = await supabase
+    const { data: orders, error } = await getSupabaseAdmin()
       .from('orders')
       .select(`
         id,
@@ -289,7 +283,7 @@ export class SQLService {
    * Stock de un producto específico
    */
   static async getProductStockContext(productId: string): Promise<SQLContext> {
-    const { data: product, error } = await supabase
+    const { data: product, error } = await getSupabaseAdmin()
       .from('products')
       .select('id, name, stock_quantity, is_available, price')
       .eq('id', productId)
@@ -328,7 +322,7 @@ export class SQLService {
     storeId: string,
     couponCode: string
   ): Promise<SQLContext> {
-    const { data: coupon, error } = await supabase
+    const { data: coupon, error } = await getSupabaseAdmin()
       .from('coupons')
       .select('*')
       .eq('store_id', storeId)
@@ -399,7 +393,7 @@ export class SQLService {
    * Obtiene producto por ID
    */
   static async getProductById(productId: string) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('products')
       .select('*')
       .eq('id', productId)
@@ -416,7 +410,7 @@ export class SQLService {
     productId: string,
     requestedQuantity: number
   ): Promise<{ available: boolean; currentStock: number }> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('products')
       .select('stock_quantity, is_available')
       .eq('id', productId)
@@ -452,7 +446,7 @@ export class SQLService {
    * Obtiene información de la tienda
    */
   static async getStoreInfo(storeId: string) {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('stores')
       .select(`
         name,

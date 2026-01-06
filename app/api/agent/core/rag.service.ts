@@ -3,7 +3,6 @@
 // Búsqueda semántica usando pgvector y OpenAI embeddings
 // ============================================================================
 
-import { createClient } from '@supabase/supabase-js';
 import {
   RAGSearchOptions,
   RAGChunk,
@@ -12,12 +11,7 @@ import {
   AgentError,
   DEFAULT_AGENT_CONFIG,
 } from '@/lib/types/agent.types';
-
-// Cliente Supabase con service role
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 // Configuración de OpenAI
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
@@ -88,7 +82,7 @@ export class RAGService {
       const queryEmbedding = await this.generateEmbedding(query);
 
       // 2. Llamar a la función RPC de búsqueda
-      const { data, error } = await supabase.rpc('search_store_knowledge', {
+      const { data, error } = await getSupabaseAdmin().rpc('search_store_knowledge', {
         p_store_id: storeId,
         p_query_embedding: queryEmbedding,
         p_match_threshold: matchThreshold,
@@ -178,7 +172,7 @@ export class RAGService {
       const queryEmbedding = await this.generateEmbedding(query);
 
       // 2. Llamar a función RPC especializada para productos
-      const { data, error } = await supabase.rpc('search_products_semantic', {
+      const { data, error } = await getSupabaseAdmin().rpc('search_products_semantic', {
         p_store_id: storeId,
         p_query_embedding: queryEmbedding,
         p_match_threshold: matchThreshold,
@@ -261,7 +255,7 @@ export class RAGService {
     try {
       const queryEmbedding = await this.generateEmbedding(query);
 
-      const { data, error } = await supabase.rpc('search_products_hybrid', {
+      const { data, error } = await getSupabaseAdmin().rpc('search_products_hybrid', {
         p_store_id: storeId,
         p_query_embedding: queryEmbedding,
         p_keyword: keyword || null,
@@ -382,7 +376,7 @@ ${i + 1}. **${chunk.title}** (${chunk.contentType})
 
     // Test vector DB
     try {
-      const { error } = await supabase
+      const { error } = await getSupabaseAdmin()
         .from('store_knowledge_base')
         .select('id')
         .limit(1);

@@ -5,13 +5,8 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { createOxxoTicket, formatOxxoReference } from '@/lib/mercadopago'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 // ============================================================================
 // POST - Crear ticket OXXO
@@ -31,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Obtener la orden
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await getSupabaseAdmin()
       .from('orders')
       .select(`
         id,
@@ -109,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Guardar referencia en la orden
-    await supabase
+    await getSupabaseAdmin()
       .from('orders')
       .update({
         payment_method: 'oxxo',
@@ -159,7 +154,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    let query = supabase
+    let query = getSupabaseAdmin()
       .from('orders')
       .select('id, status, total_amount, oxxo_reference, oxxo_expiration, payment_method')
 

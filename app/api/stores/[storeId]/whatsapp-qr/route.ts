@@ -5,12 +5,7 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 const TWILIO_WHATSAPP_NUMBER = process.env.TWILIO_WHATSAPP_NUMBER || '+13854549920';
 
@@ -26,7 +21,7 @@ export async function GET(
     const { storeId } = await params;
 
     // Buscar tienda por ID o slug
-    const { data: store, error } = await supabase
+    const { data: store, error } = await getSupabaseAdmin()
       .from('stores')
       .select('id, name, slug, whatsapp_code, logo_url')
       .or(`id.eq.${storeId},slug.eq.${storeId}`)
@@ -44,7 +39,7 @@ export async function GET(
     if (!store.whatsapp_code) {
       const newCode = generateStoreCode();
 
-      const { error: updateError } = await supabase
+      const { error: updateError } = await getSupabaseAdmin()
         .from('stores')
         .update({ whatsapp_code: newCode })
         .eq('id', store.id);
@@ -112,7 +107,7 @@ export async function POST(
     // Generar nuevo código
     const newCode = generateStoreCode();
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('stores')
       .update({ whatsapp_code: newCode })
       .eq('id', storeId)

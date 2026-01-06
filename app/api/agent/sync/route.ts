@@ -5,12 +5,19 @@
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Cliente Supabase (lazy initialization para evitar errores en build time)
+let _supabase: SupabaseClient | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 
@@ -22,6 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const { storeId } = body;
+    const supabase = getSupabase();
 
     // 1. Obtener productos (de una tienda específica o todos)
     let query = supabase
@@ -213,6 +221,8 @@ async function generateEmbedding(text: string): Promise<number[]> {
 // ============================================================================
 
 export async function GET() {
+  const supabase = getSupabase();
+
   const { count: productsCount } = await supabase
     .from('products')
     .select('*', { count: 'exact', head: true })

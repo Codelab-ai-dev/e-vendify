@@ -6,13 +6,19 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { AgentService } from '../core/agent.service';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Cliente Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Cliente Supabase (lazy initialization para evitar errores en build time)
+let _supabase: SupabaseClient | null = null;
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _supabase;
+}
 
 // ============================================================================
 // POST - Probar el agente
@@ -37,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // Si no se proporciona storeId, obtener la primera tienda activa
     if (!testStoreId) {
-      const { data: store } = await supabase
+      const { data: store } = await getSupabase()
         .from('stores')
         .select('id, name')
         .eq('is_active', true)
@@ -116,6 +122,7 @@ export async function GET() {
     const health = await AgentService.healthCheck();
 
     // Obtener estadísticas básicas
+    const supabase = getSupabase();
     const { data: stores } = await supabase
       .from('stores')
       .select('id, name')

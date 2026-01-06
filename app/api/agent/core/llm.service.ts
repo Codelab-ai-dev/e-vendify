@@ -265,11 +265,10 @@ INTENT: Actualizar carrito
 
       checkout: `
 INTENT: Checkout/Pagar
-- Muestra resumen del pedido
-- Proporciona el link de pago
-- Explica los siguientes pasos
-- Menciona que también pueden pagar en OXXO si prefieren efectivo
-- Ofrece ayuda si tienen dudas`,
+- Si la acción es 'request_address', PIDE LA DIRECCIÓN de entrega al cliente de forma amable
+- Muestra el resumen del carrito y pregunta: "¿A dónde te lo enviamos?"
+- NO procedas al pago hasta que tengas la dirección
+- Si ya tiene dirección, muestra las OPCIONES DE PAGO disponibles`,
 
       oxxo_checkout: `
 INTENT: Pago en OXXO
@@ -280,6 +279,24 @@ INTENT: Pago en OXXO
 - Explica que deben ir a cualquier OXXO y dar la referencia
 - Indica que recibirán confirmación por WhatsApp cuando se procese el pago
 - Usa emojis para hacerlo visual: 🏪💰📅`,
+
+      select_payment_method: `
+INTENT: Seleccionar método de pago
+- Si la acción es 'request_address', primero pide la dirección de entrega
+- Si tiene dirección, muestra las DOS OPCIONES de pago:
+  1. *💳 Tarjeta de crédito/débito* - Pago seguro con MercadoPago (incluye el link)
+  2. *🏪 Pago en OXXO* - Paga en efectivo en cualquier OXXO (responde "OXXO")
+- Muestra el resumen del pedido con la dirección de entrega
+- Pregunta: "¿Cómo prefieres pagar?"`,
+
+      provide_address: `
+INTENT: Cliente proporcionó dirección
+- Confirma que guardaste la dirección correctamente
+- Repite la dirección para que el cliente la verifique
+- INMEDIATAMENTE muestra las opciones de pago:
+  1. *💳 Tarjeta* - link de MercadoPago
+  2. *🏪 OXXO* - responder "OXXO"
+- Pregunta cómo prefiere pagar`,
 
       apply_coupon: `
 INTENT: Aplicar cupón
@@ -345,6 +362,7 @@ INTENT: No identificado
         let details = '';
         if (r.success && r.payload) {
           const payload = r.payload as Record<string, unknown>;
+          const resultData = r.resultData as Record<string, unknown> | undefined;
 
           switch (r.type) {
             case 'create_oxxo_ticket':
@@ -369,6 +387,32 @@ INTENT: No identificado
 
             case 'create_checkout_link':
               details = ` - URL: ${payload.checkoutUrl}`;
+              break;
+
+            case 'request_address':
+              const cartSummary1 = resultData?.cartSummary as { items?: number; total?: number } | undefined;
+              details = `
+  - ACCIÓN: Pedir dirección de entrega al cliente
+  - Total del pedido: $${cartSummary1?.total || payload.cartTotal} MXN
+  - Productos en carrito: ${cartSummary1?.items || payload.itemCount}`;
+              break;
+
+            case 'save_address':
+              details = `
+  - Dirección guardada: ${payload.address}
+  - ACCIÓN: Ahora mostrar opciones de pago (tarjeta o OXXO)`;
+              break;
+
+            case 'request_payment_method':
+              const cartSummary2 = resultData?.cartSummary as { items?: number; total?: number } | undefined;
+              const paymentOptions = resultData?.paymentOptions as Array<{ id: string; name: string; checkoutUrl?: string }> | undefined;
+              const cardOption = paymentOptions?.find(o => o.id === 'card');
+              details = `
+  - Dirección de entrega: ${resultData?.deliveryAddress}
+  - Total: $${cartSummary2?.total || payload.cartTotal} MXN
+  - OPCIONES DE PAGO:
+    1. 💳 Tarjeta (MercadoPago): ${cardOption?.checkoutUrl || 'Link no disponible'}
+    2. 🏪 OXXO: Responder "OXXO" para generar ficha`;
               break;
           }
         }

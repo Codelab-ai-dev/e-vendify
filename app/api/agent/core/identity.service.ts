@@ -3,18 +3,12 @@
 // Resuelve la identidad del cliente basado en número de teléfono y tienda
 // ============================================================================
 
-import { createClient } from '@supabase/supabase-js';
 import {
   CustomerIdentity,
   AgentError,
   SessionState,
 } from '@/lib/types/agent.types';
-
-// Cliente Supabase con service role para bypass RLS
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 export class IdentityService {
   /**
@@ -64,7 +58,7 @@ export class IdentityService {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
 
     // 1. Verificar que la tienda existe y está activa
-    const { data: store, error: storeError } = await supabase
+    const { data: store, error: storeError } = await getSupabaseAdmin()
       .from('stores')
       .select('id, name, slug, is_active')
       .eq('id', storeId)
@@ -81,7 +75,7 @@ export class IdentityService {
     }
 
     // 2. Obtener o crear cliente y sesión usando la función RPC
-    const { data: sessionId, error: sessionError } = await supabase.rpc(
+    const { data: sessionId, error: sessionError } = await getSupabaseAdmin().rpc(
       'get_or_create_whatsapp_session',
       {
         p_phone_number: normalizedPhone,
@@ -99,7 +93,7 @@ export class IdentityService {
     }
 
     // 3. Obtener datos completos del cliente y sesión
-    const { data: sessionData, error: fetchError } = await supabase
+    const { data: sessionData, error: fetchError } = await getSupabaseAdmin()
       .from('whatsapp_sessions')
       .select(`
         id,
@@ -112,6 +106,8 @@ export class IdentityService {
         context,
         window_opened_at,
         window_closes_at,
+        delivery_address,
+        waiting_for,
         customer:whatsapp_customers!customer_id (
           id,
           phone_number,
@@ -194,6 +190,9 @@ export class IdentityService {
       cartItemsCount,
       cartTotal: Number(sessionData.cart_total) || 0,
 
+      deliveryAddress: sessionData.delivery_address as string | null,
+      waitingFor: sessionData.waiting_for as string | null,
+
       isNewCustomer,
       isBlocked: false,
 
@@ -211,7 +210,7 @@ export class IdentityService {
     customerId: string,
     name: string
   ): Promise<void> {
-    await supabase
+    await getSupabaseAdmin()
       .from('whatsapp_customers')
       .update({
         customer_name: name,
@@ -227,7 +226,7 @@ export class IdentityService {
     customerId: string,
     email: string
   ): Promise<void> {
-    await supabase
+    await getSupabaseAdmin()
       .from('whatsapp_customers')
       .update({
         customer_email: email,
@@ -240,7 +239,7 @@ export class IdentityService {
    * Abre la ventana de 24 horas para el cliente
    */
   static async openWindow24h(sessionId: string): Promise<void> {
-    await supabase.rpc('open_24h_window', {
+    await getSupabaseAdmin().rpc('open_24h_window', {
       p_session_id: sessionId,
     });
   }
@@ -254,7 +253,7 @@ export class IdentityService {
     windowMinutes: number = 10,
     maxMessages: number = 20
   ): Promise<boolean> {
-    const { data, error } = await supabase.rpc('check_rate_limit', {
+    const { data, error } = await getSupabaseAdmin().rpc('check_rate_limit', {
       p_phone_number: this.normalizePhoneNumber(phoneNumber),
       p_store_id: storeId,
       p_window_minutes: windowMinutes,
@@ -277,7 +276,7 @@ export class IdentityService {
     storeId: string,
     windowMinutes: number = 10
   ): Promise<void> {
-    await supabase.rpc('increment_rate_limit', {
+    await getSupabaseAdmin().rpc('increment_rate_limit', {
       p_phone_number: this.normalizePhoneNumber(phoneNumber),
       p_store_id: storeId,
       p_window_minutes: windowMinutes,
@@ -291,7 +290,7 @@ export class IdentityService {
     customerId: string,
     reason: string
   ): Promise<void> {
-    await supabase
+    await getSupabaseAdmin()
       .from('whatsapp_customers')
       .update({
         is_blocked: true,
@@ -309,7 +308,7 @@ export class IdentityService {
   ): Promise<string | null> {
     // Por ahora, asumimos una tienda por número de Twilio
     // En el futuro, esto puede ser una tabla de mapeo
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('stores')
       .select('id')
       .eq('is_active', true)
@@ -344,7 +343,7 @@ export class IdentityService {
     name: string;
     slug: string;
   } | null> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('stores')
       .select('id, name, slug')
       .eq('whatsapp_code', code.toUpperCase())
@@ -368,7 +367,7 @@ export class IdentityService {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
 
     // Verificar si ya existe el cliente para esta tienda
-    const { data: existing } = await supabase
+    const { data: existing } = await getSupabaseAdmin()
       .from('whatsapp_customers')
       .select('id')
       .eq('phone_number', normalizedPhone)
@@ -377,7 +376,7 @@ export class IdentityService {
 
     if (existing) {
       // Actualizar última interacción
-      await supabase
+      await getSupabaseAdmin()
         .from('whatsapp_customers')
         .update({ last_interaction_at: new Date().toISOString() })
         .eq('id', existing.id);
@@ -386,7 +385,7 @@ export class IdentityService {
     }
 
     // Crear nuevo cliente
-    const { data: newCustomer, error } = await supabase
+    const { data: newCustomer, error } = await getSupabaseAdmin()
       .from('whatsapp_customers')
       .insert({
         phone_number: normalizedPhone,
@@ -415,7 +414,7 @@ export class IdentityService {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
 
     // Buscar el cliente más reciente (por si tiene varias tiendas)
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('whatsapp_customers')
       .select(`
         id,
@@ -448,7 +447,7 @@ export class IdentityService {
   }>> {
     const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
 
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('whatsapp_customers')
       .select(`
         store_id,
@@ -467,25 +466,4 @@ export class IdentityService {
     }));
   }
 
-  /**
-   * Normaliza número de teléfono
-   */
-  private static normalizePhoneNumber(phone: string): string {
-    // Remover espacios y caracteres no numéricos excepto +
-    let clean = phone.replace(/[^\d+]/g, '');
-
-    // Asegurar que empiece con +
-    if (!clean.startsWith('+')) {
-      // Asumir México si no tiene código de país
-      if (clean.length === 10) {
-        clean = '+52' + clean;
-      } else if (clean.startsWith('52')) {
-        clean = '+' + clean;
-      } else {
-        clean = '+' + clean;
-      }
-    }
-
-    return clean;
-  }
 }

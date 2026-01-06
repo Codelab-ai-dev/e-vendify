@@ -3,7 +3,6 @@
 // Ejecuta acciones transaccionales (carrito, checkout, cupones)
 // ============================================================================
 
-import { createClient } from '@supabase/supabase-js';
 import {
   CustomerIdentity,
   Intent,
@@ -15,14 +14,9 @@ import {
   RAGChunk,
   AgentError,
 } from '@/lib/types/agent.types';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { SQLService } from './sql.service';
 import { createOxxoTicket, formatOxxoReference } from '@/lib/mercadopago';
-
-// Cliente Supabase con service role
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // URL base de la aplicación
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://e-vendify.com';
@@ -35,7 +29,8 @@ export class ActionsService {
     intent: Intent,
     entities: ExtractedEntities,
     identity: CustomerIdentity,
-    ragChunks: RAGChunk[]
+    ragChunks: RAGChunk[],
+    userMessage?: string
   ): Promise<ActionResult[]> {
     const results: ActionResult[] = [];
 
@@ -59,11 +54,38 @@ export class ActionsService {
         break;
 
       case 'checkout':
-        results.push(await this.createCheckoutLink(identity));
+        // Si no tiene dirección, pedirla primero
+        if (!identity.deliveryAddress) {
+          results.push(await this.requestAddress(identity));
+        } else {
+          // Ya tiene dirección, mostrar opciones de pago
+          results.push(await this.requestPaymentMethod(identity));
+        }
         break;
 
       case 'oxxo_checkout':
-        results.push(await this.createOxxoCheckout(identity));
+        // Si no tiene dirección, pedirla primero
+        if (!identity.deliveryAddress) {
+          results.push(await this.requestAddress(identity));
+        } else {
+          results.push(await this.createOxxoCheckout(identity));
+        }
+        break;
+
+      case 'provide_address':
+        // El usuario proporcionó su dirección
+        if (userMessage) {
+          results.push(await this.saveAddress(identity, userMessage));
+        }
+        break;
+
+      case 'select_payment_method':
+        // Mostrar opciones de pago
+        if (!identity.deliveryAddress) {
+          results.push(await this.requestAddress(identity));
+        } else {
+          results.push(await this.requestPaymentMethod(identity));
+        }
         break;
 
       case 'support':
@@ -590,13 +612,161 @@ export class ActionsService {
   }
 
   /**
+   * Solicita la dirección de entrega al cliente
+   */
+  static async requestAddress(identity: CustomerIdentity): Promise<ActionResult> {
+    try {
+      // Marcar que estamos esperando la dirección
+      await this.updateSession(identity.sessionId, {
+        waiting_for: 'address',
+        session_state: 'checkout',
+      });
+
+      // Obtener el carrito para mostrar el resumen
+      const cart = await SQLService.getCart(identity.sessionId);
+
+      return {
+        type: 'request_address',
+        success: true,
+        payload: {
+          cartTotal: cart.total,
+          itemCount: cart.itemCount,
+        },
+        resultData: {
+          message: 'Necesito tu dirección de entrega para continuar con el pedido.',
+          cartSummary: {
+            items: cart.itemCount,
+            total: cart.total,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        type: 'request_address',
+        success: false,
+        payload: {},
+        error: String(error),
+      };
+    }
+  }
+
+  /**
+   * Guarda la dirección de entrega del cliente
+   */
+  static async saveAddress(
+    identity: CustomerIdentity,
+    address: string
+  ): Promise<ActionResult> {
+    try {
+      // Guardar dirección y limpiar waiting_for
+      await this.updateSession(identity.sessionId, {
+        delivery_address: address.trim(),
+        waiting_for: null,
+        session_state: 'checkout',
+      });
+
+      // Obtener el carrito para mostrar el resumen
+      const cart = await SQLService.getCart(identity.sessionId);
+
+      return {
+        type: 'save_address',
+        success: true,
+        payload: {
+          address: address.trim(),
+        },
+        resultData: {
+          message: 'Dirección guardada. Ahora elige tu método de pago.',
+          address: address.trim(),
+          showPaymentOptions: true,
+          cartSummary: {
+            items: cart.itemCount,
+            subtotal: cart.subtotal,
+            discount: cart.discountAmount,
+            total: cart.total,
+          },
+        },
+      };
+    } catch (error) {
+      return {
+        type: 'save_address',
+        success: false,
+        payload: { address },
+        error: String(error),
+      };
+    }
+  }
+
+  /**
+   * Muestra las opciones de pago disponibles
+   */
+  static async requestPaymentMethod(
+    identity: CustomerIdentity
+  ): Promise<ActionResult> {
+    try {
+      const cart = await SQLService.getCart(identity.sessionId);
+
+      if (cart.items.length === 0) {
+        return {
+          type: 'request_payment_method',
+          success: false,
+          payload: {},
+          error: 'El carrito está vacío',
+        };
+      }
+
+      // Construir URL de checkout con tarjeta
+      const checkoutUrl = `${APP_URL}/store/${identity.storeSlug}/checkout?session=${identity.sessionId}`;
+
+      return {
+        type: 'request_payment_method',
+        success: true,
+        payload: {
+          address: identity.deliveryAddress,
+          cartTotal: cart.total,
+        },
+        resultData: {
+          message: '¿Cómo deseas pagar?',
+          deliveryAddress: identity.deliveryAddress,
+          cartSummary: {
+            items: cart.itemCount,
+            subtotal: cart.subtotal,
+            discount: cart.discountAmount,
+            total: cart.total,
+          },
+          paymentOptions: [
+            {
+              id: 'card',
+              name: 'Tarjeta de crédito/débito',
+              description: 'Pago seguro con MercadoPago',
+              checkoutUrl,
+            },
+            {
+              id: 'oxxo',
+              name: 'Pago en OXXO',
+              description: 'Paga en efectivo en cualquier OXXO',
+              instructions: 'Responde "OXXO" para generar tu ficha de pago',
+            },
+          ],
+        },
+      };
+    } catch (error) {
+      return {
+        type: 'request_payment_method',
+        success: false,
+        payload: {},
+        error: String(error),
+      };
+    }
+  }
+
+  /**
    * Actualiza la sesión de WhatsApp
    */
   private static async updateSession(
     sessionId: string,
     updates: Record<string, unknown>
   ): Promise<void> {
-    const { error } = await supabase
+    const { error } = await getSupabaseAdmin()
       .from('whatsapp_sessions')
       .update({
         ...updates,
@@ -631,14 +801,14 @@ export class ActionsService {
       }
 
       // Obtener datos del cliente
-      const { data: customer } = await supabase
+      const { data: customer } = await getSupabaseAdmin()
         .from('whatsapp_customers')
         .select('customer_name, customer_email, phone_number')
         .eq('id', identity.customerId)
         .single();
 
       // Obtener datos de la tienda
-      const { data: store } = await supabase
+      const { data: store } = await getSupabaseAdmin()
         .from('stores')
         .select('id, name, business_name, slug')
         .eq('id', identity.storeId)
@@ -653,12 +823,22 @@ export class ActionsService {
         };
       }
 
+      // Obtener la dirección de entrega de la sesión
+      const { data: sessionData } = await getSupabaseAdmin()
+        .from('whatsapp_sessions')
+        .select('delivery_address')
+        .eq('id', identity.sessionId)
+        .single();
+
+      const deliveryAddress = sessionData?.delivery_address || identity.deliveryAddress;
+
       // Crear la orden
       const orderData = {
         store_id: identity.storeId,
         customer_name: customer?.customer_name || 'Cliente WhatsApp',
         customer_email: customer?.customer_email || `${identity.phoneNumber.replace('+', '')}@whatsapp.temp`,
         customer_phone: identity.phoneNumber,
+        customer_address: deliveryAddress,
         total_amount: cart.total,
         discount_amount: cart.discountAmount || 0,
         coupon_id: cart.couponId || null,
@@ -667,7 +847,7 @@ export class ActionsService {
         delivery_method: 'delivery',
       };
 
-      const { data: order, error: orderError } = await supabase
+      const { data: order, error: orderError } = await getSupabaseAdmin()
         .from('orders')
         .insert(orderData)
         .select('id')
@@ -692,7 +872,7 @@ export class ActionsService {
         price: item.price,
       }));
 
-      await supabase.from('order_items').insert(orderItems);
+      await getSupabaseAdmin().from('order_items').insert(orderItems);
 
       // Crear ticket OXXO
       const nameParts = (customer?.customer_name || 'Cliente').split(' ');
@@ -717,7 +897,7 @@ export class ActionsService {
 
       if (!oxxoResult.success) {
         // Marcar orden como fallida
-        await supabase
+        await getSupabaseAdmin()
           .from('orders')
           .update({ status: 'cancelled' })
           .eq('id', order.id);
@@ -731,7 +911,7 @@ export class ActionsService {
       }
 
       // Actualizar orden con referencia OXXO
-      await supabase
+      await getSupabaseAdmin()
         .from('orders')
         .update({
           oxxo_reference: oxxoResult.reference,
@@ -740,13 +920,15 @@ export class ActionsService {
         })
         .eq('id', order.id);
 
-      // Limpiar carrito después de crear la orden
+      // Limpiar carrito y dirección después de crear la orden
       await this.updateSession(identity.sessionId, {
         cart_items: [],
         cart_total: 0,
         applied_coupon_id: null,
         applied_coupon_code: null,
         discount_amount: 0,
+        delivery_address: null,
+        waiting_for: null,
         session_state: 'idle',
       });
 
@@ -831,6 +1013,16 @@ export class ActionsService {
 
       case 'create_oxxo_ticket':
         return `Ticket OXXO generado. Referencia: ${payload.reference}. Monto: $${payload.amount} MXN. Vence: ${payload.expirationDate}`;
+
+      case 'request_address':
+        return `Solicitando dirección de entrega. Total del pedido: $${payload.cartTotal} MXN`;
+
+      case 'save_address':
+        return `Dirección guardada: ${payload.address}. Ahora mostrar opciones de pago.`;
+
+      case 'request_payment_method':
+        const cartSummary = resultData?.cartSummary as { total?: number } | undefined;
+        return `Mostrando opciones de pago. Dirección: ${resultData?.deliveryAddress}. Total: $${cartSummary?.total || payload.cartTotal} MXN. Opciones: 1) Tarjeta (MercadoPago) 2) Efectivo (OXXO)`;
 
       case 'clear_cart':
         return 'Carrito vaciado';

@@ -220,6 +220,22 @@ const INTENT_PATTERNS: IntentPattern[] = [
     requiresConfirmation: true,
   },
 
+  // Seleccionar método de pago
+  {
+    intent: 'select_payment_method',
+    keywords: [
+      { word: 'como pago', weight: 10 },
+      { word: 'metodos de pago', weight: 10 },
+      { word: 'formas de pago', weight: 10 },
+      { word: 'opciones de pago', weight: 10 },
+      { word: 'quiero pagar', weight: 8 },
+      { word: 'metodo de pago', weight: 10 },
+      { word: 'forma de pago', weight: 10 },
+    ],
+    approach: 'llm_only',
+    requiresConfirmation: false,
+  },
+
   // Aplicar cupón
   {
     intent: 'apply_coupon',
@@ -457,6 +473,16 @@ export class RouterService {
       return 'search_product';
     }
 
+    // Si estamos esperando la dirección, cualquier mensaje largo es probablemente la dirección
+    if (identity.waitingFor === 'address') {
+      // Si el mensaje tiene más de 10 caracteres y no es un comando claro, es dirección
+      const isLikelyAddress = message.trim().length > 10 &&
+        !this.isCommand(message);
+      if (isLikelyAddress) {
+        return 'provide_address';
+      }
+    }
+
     // Si dice "si" o "confirmar" y está en checkout
     if (
       identity.sessionState === 'checkout' &&
@@ -471,6 +497,18 @@ export class RouterService {
     }
 
     return intent;
+  }
+
+  /**
+   * Verifica si el mensaje es un comando/palabra clave clara
+   */
+  private static isCommand(message: string): boolean {
+    const commands = [
+      'hola', 'adios', 'carrito', 'pagar', 'oxxo', 'tarjeta',
+      'ayuda', 'cancelar', 'quitar', 'agregar', 'buscar'
+    ];
+    const normalized = message.toLowerCase().trim();
+    return commands.some(cmd => normalized === cmd || normalized.startsWith(cmd + ' '));
   }
 
   /**

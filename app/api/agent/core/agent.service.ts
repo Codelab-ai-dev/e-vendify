@@ -3,7 +3,6 @@
 // Coordina todos los servicios del agente RAG
 // ============================================================================
 
-import { createClient } from '@supabase/supabase-js';
 import {
   AgentRequest,
   AgentResponse,
@@ -17,18 +16,13 @@ import {
   AgentError,
   DEFAULT_AGENT_CONFIG,
 } from '@/lib/types/agent.types';
+import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { IdentityService } from './identity.service';
 import { RouterService } from './router.service';
 import { RAGService } from './rag.service';
 import { SQLService } from './sql.service';
 import { LLMService } from './llm.service';
 import { ActionsService } from './actions.service';
-
-// Cliente Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export class AgentService {
   /**
@@ -143,14 +137,20 @@ export class AgentService {
       // =====================================================================
       // 5. EJECUCIÓN DE ACCIONES
       // =====================================================================
+      const actionIntents = [
+        'add_to_cart', 'remove_from_cart', 'update_cart', 'checkout',
+        'oxxo_checkout', 'apply_coupon', 'provide_address', 'select_payment_method'
+      ];
+
       if (intentClassification.suggestedApproach === 'action' ||
-          ['add_to_cart', 'remove_from_cart', 'update_cart', 'checkout', 'apply_coupon'].includes(intentClassification.intent)) {
+          actionIntents.includes(intentClassification.intent)) {
 
         actionResults = await ActionsService.executeActionsForIntent(
           intentClassification.intent,
           intentClassification.entities,
           identity,
-          ragChunks
+          ragChunks,
+          request.message // Pasar el mensaje del usuario para la dirección
         );
 
         console.log(`[Agent] Actions: ${actionResults.length} executed`);
@@ -306,7 +306,7 @@ export class AgentService {
     sessionId: string,
     limit: number
   ): Promise<ConversationMessage[]> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('whatsapp_messages')
       .select('role, content, created_at')
       .eq('session_id', sessionId)
@@ -317,7 +317,7 @@ export class AgentService {
 
     return data
       .reverse()
-      .map((msg) => ({
+      .map((msg: { role: string; content: string; created_at: string }) => ({
         role: msg.role as 'user' | 'assistant' | 'system',
         content: msg.content,
         createdAt: msg.created_at,
@@ -340,7 +340,7 @@ export class AgentService {
       created_at: new Date().toISOString(),
     }));
 
-    await supabase.from('whatsapp_messages').insert(records);
+    await getSupabaseAdmin().from('whatsapp_messages').insert(records);
   }
 
   /**
@@ -349,7 +349,7 @@ export class AgentService {
   private static async persistConversation(
     record: ConversationRecord
   ): Promise<string> {
-    const { data, error } = await supabase
+    const { data, error } = await getSupabaseAdmin()
       .from('agent_conversations')
       .insert({
         session_id: record.sessionId,
@@ -458,7 +458,7 @@ export class AgentService {
 
     // Check Database
     try {
-      const { error } = await supabase
+      const { error } = await getSupabaseAdmin()
         .from('whatsapp_sessions')
         .select('id')
         .limit(1);
